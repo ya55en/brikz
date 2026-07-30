@@ -1,0 +1,22 @@
+[project]
+name = "brikz"
+dynamic = ["version"]
+description = "A BrickLink API async+sync python wrapper"
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Yassen Damyanov", email = "yd@itlabs.bg" }
+]
+requires-python = ">=3.10"
+dependencies = []
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Programming Language :: Python :: 3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/brikz/__init__.py"
