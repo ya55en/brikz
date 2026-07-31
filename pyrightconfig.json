@@ -1,0 +1,71 @@
+// Location: <project_root>/basedpyrightconfig.json
+// basedpyright will auto-discover this file when placed in the project root.
+// Alternatively, pyrightconfig.json works too (same format, same location).
+// basedpyrightconfig.json takes precedence over pyrightconfig.json and pyproject.toml.
+{
+  // --- Environment ---
+  // Point to your uv-managed venv (relative to this file)
+  "venvPath": ".",
+  "venv": ".venv",
+
+  // Python version to target
+  "pythonVersion": "3.12",
+
+  // --- Files ---
+  // Which directories to include/exclude from analysis
+  "include": ["src", "tests"],
+  "exclude": [
+    "**/__pycache__",
+    "**/.venv",
+    "**/node_modules"
+  ],
+
+  // --- Type checking mode ---
+  // off | basic | standard | strict | recommended | all
+  // "recommended" ≈ "all" but separates crash-likely errors from style warnings
+  "typeCheckingMode": "strict",
+
+  // --- Per-rule overrides ---
+  // Each rule accepts: "error" | "warning" | "information" | "none"
+  // These let you silence or escalate individual rules on top of the mode above.
+
+  // Very common to silence — many third-party libs lack stubs
+  "reportMissingTypeStubs": "warning",
+
+  // Fires a lot in real code; demote to warning or silence
+  "reportUnknownVariableType": "warning",
+  "reportUnknownMemberType": "warning",
+  "reportUnknownArgumentType": "warning",
+  "reportUnknownParameterType": "warning",
+
+  // basedpyright-specific: flags `Any` usage explicitly
+  // Set to "none" if you're not ready to eliminate Any yet
+  "reportAny": "none",
+
+  // Implicit return types (functions without a return annotation)
+  "reportUnknownLambdaType": "warning",
+
+  // Useful to keep on — flags code that can never be reached
+  "reportUnreachable": "error",
+
+  // Flags # type: ignore comments that don't cite a rule code
+  // Good for keeping suppression comments clean
+  "reportIgnoreCommentWithoutRule": "error",
+
+  // Missing return statements in non-None functions
+  "reportReturnType": "error",
+
+  // Attribute access on possibly-undefined values
+  "reportOptionalMemberAccess": "error",
+
+  // Calling a possibly-None value
+  "reportOptionalCall": "error",
+
+  // --- Per-directory overrides ---
+  // Tests reach into client internals (e.g. `client._client`) to assert on
+  // the underlying httpx client; that's expected there, not elsewhere.
+  "executionEnvironments": [
+    { "root": "tests", "reportPrivateUsage": "none" },
+    { "root": "." }
+  ]
+}

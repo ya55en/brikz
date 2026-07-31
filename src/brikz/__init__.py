@@ -1,6 +1,6 @@
 """brikz - a BrickLink API sync+async Python wrapper."""
 
-__version__ = "0.0.0"
+__version__ = "0.0.1"
 
 
 YEL = "\033[33m"
@@ -27,6 +27,3 @@ print(f"""
   {YEL}Watch this space: https://github.com/ya55en/brikz !
   {GRN}Enjoy! ;){RST}
 """)
-
-
-raise NotImplementedError(f"{YEL}Coming sooooooon ;){RST}\n")

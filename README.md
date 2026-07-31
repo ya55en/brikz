@@ -2,11 +2,10 @@
 
 The BrickLink API async+sync python wrapper
 
-> **Not there yet.** `brikz` has no working functionality — importing it raises
-> `NotImplementedError`. Don't add it as a dependency yet. Working hard to
-> bring this to you all.
+> **Not there yet.** `brikz` has no working functionality. Don't add it
+> as a dependency yet. Working hard to bring this to you all.
 
-`brikz` has both a sync and an async client. The API wrapper accepts either; if you pass an async client to it, you need to `await` the API calls; otherwise just call it synchronously.
+`brikz` has both a sync and an async client. The API wrapper accepts either; if you pass it an async client, you need to `await` the API calls; otherwise just call it synchronously.
 
 ## Example
 
@@ -38,3 +37,18 @@ async def async_call():
 
 asyncio.run(async_call())
 ```
+
+## The BrickLink API
+
+[BrickLink](https://www.bricklink.com) is the largest LEGO marketplace, and exposes a
+REST API for stores to manage their catalog, inventory, and orders. It requires
+OAuth 1.0a-signed requests; see the [API docs](https://www.bricklink.com/v3/api.page)
+and the [API consumer console](https://www.bricklink.com/v2/api/register_consumer.page)
+where credentials are issued.
+
+## Behavior-based testing
+
+Tests are written as behavior specs: a `describe_<Unit>` class groups `it_<does_something>`
+methods, each stating one expected behavior in plain English. The
+[pytest-spec](https://github.com/pchomik/pytest-spec) plugin renders these as readable,
+indented output instead of raw test names.

@@ -7,9 +7,6 @@ PY_SOURCES := $(shell find src/brikz/ -name '*.py')
 WHEEL := dist/brikz-$(VERSION)-py3-none-any.whl
 SDIST := dist/brikz-$(VERSION).tar.gz
 
-init:
-	uv venv
-
 sync:
 	uv sync
 
@@ -17,6 +14,20 @@ $(WHEEL) $(SDIST) &: $(PY_SOURCES) pyproject.toml
 	uv build
 
 build: $(WHEEL) $(SDIST)
+
+test:
+	uv run pytest
+
+test-cov:
+	rm -rf htmlcov/
+	uv run pytest -q --cov --cov-report=html --cov-report=term-missing
+
+test-cov-http:  test-cov
+	python3 -m http.server 8000 -d htmlcov/
+
+lint:
+	uv run ruff check .
+	uv run basedpyright
 
 publish: clean build  # older dist files break the uplaod, so clean first
 ifdef PYPI_URL
@@ -29,7 +40,14 @@ endif
 
 clean:
 	rm -rf dist/
+	rm -rf htmlcov/
+	rm -f .coverage
+
+clean-all:  clean
 	find . -type d -name __pycache__ -exec rm -rf {} +
+	find . -type d -name .pytest_cache -exec rm -rf {} +
+	find . -type d -name .ruff_cache -exec rm -rf {} +
+	rm -rf .venv
 
 
-.PHONY: init sync build publish clean
+.PHONY: init sync test test-cov lint build publish clean clean-all

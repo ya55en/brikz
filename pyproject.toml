@@ -8,7 +8,10 @@ authors = [
     { name = "Yassen Damyanov", email = "yd@itlabs.bg" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "httpx>=0.28",
+    "authlib>=1.6",
+]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Programming Language :: Python :: 3",
@@ -22,9 +25,42 @@ Homepage = "https://github.com/ya55en/brikz"
 Repository = "https://github.com/ya55en/brikz"
 Issues = "https://github.com/ya55en/brikz/issues"
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-spec>=5.0",
+    "basedpyright>=1.39",
+    "pytest-cov>=6.0",
+    "ruff>=0.16.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_classes = ["Test*", "describe_*"]
+python_functions = ["test_*", "it_*"]
+addopts = "--spec"
+# keep unit CamelCase name unsplit
+spec_container_format = "describe {unit_name}:"
+
+[tool.coverage.run]
+source = ["src/brikz"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = ["if TYPE_CHECKING:"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
 path = "src/brikz/__init__.py"
+
+[tool.ruff]
+line-length = 96
+
+# tell ruff's isort not to force a blank line before the local-folder
+# section when it follows the first-party section
+[tool.ruff.lint.isort]
+no-lines-before = ["local-folder"]
