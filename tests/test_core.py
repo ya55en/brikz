@@ -25,7 +25,9 @@ from brikz.core import (
 pytestmark = pytest.mark.anyio
 
 
-def envelope_transport(json_body: dict[str, object], status_code: int = 200) -> httpx.MockTransport:
+def envelope_transport(
+    json_body: dict[str, object], status_code: int = 200
+) -> httpx.MockTransport:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(status_code, json=json_body, request=request)
 
@@ -41,6 +43,7 @@ def capturing_transport() -> tuple[httpx.MockTransport, list[httpx.Request]]:
 
     return httpx.MockTransport(handler), captured
 
+
 CREDENTIALS = BrickLinkCredentials(
     consumer_key="a-consumer-key",
     consumer_secret="a-consumer-secret",
@@ -54,7 +57,8 @@ class describe_BrickLinkCredentials:
         assert "a-consumer-key" in repr(CREDENTIALS)
 
     @pytest.mark.parametrize(
-        "secret", ["a-consumer-secret", "a-token", "a-token-secret"]
+        "secret",
+        ["a-consumer-secret", "a-token", "a-token-secret"],
     )
     def it_keeps_every_secret_out_of_its_repr(self, secret: str):
         assert secret not in repr(CREDENTIALS)
@@ -115,9 +119,7 @@ class describe_MalformedResponseError:
     def it_reports_the_status_and_the_body(self):
         response = httpx.Response(502, text="<html>Bad Gateway</html>")
 
-        assert str(MalformedResponseError(response)) == (
-            "HTTP 502: '<html>Bad Gateway</html>'"
-        )
+        assert str(MalformedResponseError(response)) == "HTTP 502: '<html>Bad Gateway</html>'"
 
     def it_shortens_a_long_body_to_200_characters(self):
         response = httpx.Response(500, text="x" * 5000)

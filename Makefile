@@ -50,4 +50,4 @@ clean-all:  clean
 	rm -rf .venv
 
 
-.PHONY: init sync test test-cov lint build publish clean clean-all
+.PHONY: sync test test-cov lint build publish clean clean-all

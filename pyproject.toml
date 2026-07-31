@@ -34,6 +34,17 @@ dev = [
     "ruff>=0.16.1",
 ]
 
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/brikz/__init__.py"
+
+# hatchling's default sdist is "everything not in .gitignore"; be explicit
+[tool.hatch.build.targets.sdist]
+include = ["src/brikz", "tests", "README.md", "LICENSE", "pyproject.toml"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_classes = ["Test*", "describe_*"]
@@ -49,13 +60,6 @@ branch = true
 [tool.coverage.report]
 show_missing = true
 exclude_also = ["if TYPE_CHECKING:"]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.version]
-path = "src/brikz/__init__.py"
 
 [tool.ruff]
 line-length = 96
