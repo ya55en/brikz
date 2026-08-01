@@ -273,6 +273,41 @@ class describe_AsyncBrickLink:
         assert client._client.is_closed
 
 
+class describe_Request:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
+    def it_carries_a_path_and_a_parser(self): ...
+
+    def it_carries_no_query_parameters_by_default(self): ...
+
+    def it_refuses_to_be_mutated(self): ...
+
+
+class describe_BrickLink_send:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
+    def it_gets_the_path_the_request_names(self): ...
+
+    def it_passes_the_query_parameters_the_request_carries(self): ...
+
+    def it_answers_with_whatever_the_requests_parser_returns(self): ...
+
+    def it_leaves_unset_query_parameters_out_of_the_request(self): ...
+
+    def it_lets_an_api_error_escape(self): ...
+
+
+@pytest.mark.skip(reason="design stubs -- no implementation yet")
+class describe_AsyncBrickLink_send:
+    pytestmark = pytest.mark.anyio
+
+    async def it_gets_the_path_the_request_names(self): ...
+
+    async def it_answers_with_whatever_the_requests_parser_returns(self): ...
+
+    async def it_lets_an_api_error_escape(self): ...
+
+
 class describe_unwrap:
     def it_returns_the_data_of_a_successful_envelope(self):
         response = envelope_response({"meta": {"code": 200}, "data": {"foo": "bar"}})

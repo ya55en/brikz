@@ -9,9 +9,12 @@ import httpx
 from authlib.integrations.httpx_client import OAuth1Auth
 
 if TYPE_CHECKING:
-    from ._types import JsonStruct
+    from collections.abc import Callable
 
 BASE_URL = "https://api.bricklink.com/api/store/v1"
+
+# BrickLink's envelope "data", once unwrap has checked its shape.
+type JsonStruct = dict[str, Any] | list[Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +42,20 @@ class BrickLinkCredentials:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class Request[T]:
+    """One API call, as a value: where to go, and how to read the answer.
+
+    Built by the sub-API modules (`catalog_item.get_item(...)`) and executed
+    by `BrickLink.send` / `AsyncBrickLink.send`. Sync and async differ in
+    those two methods and nowhere else.
+    """
+
+    path: str
+    parse: Callable[[JsonStruct | None], T]
+    params: dict[str, Any] = field(default_factory=dict)
+
+
 class AsyncBrickLink:
     """Thin async HTTP client for the BrickLink API based on `httpx`.
 
@@ -59,6 +76,10 @@ class AsyncBrickLink:
             headers={"User-Agent": user_agent()},
             **httpx_kwargs,
         )
+
+    async def send[T](self, request: Request[T]) -> T:
+        """Execute a request and read its answer into the request's own type."""
+        raise NotImplementedError
 
     async def get(self, path: str, params: dict[str, Any] | None = None) -> JsonStruct | None:
         response = await self._client.get(path, params=clean_params(params))
@@ -94,6 +115,10 @@ class BrickLink:
             headers={"User-Agent": user_agent()},
             **httpx_kwargs,
         )
+
+    def send[T](self, request: Request[T]) -> T:
+        """Execute a request and read its answer into the request's own type."""
+        raise NotImplementedError
 
     def get(self, path: str, params: dict[str, Any] | None = None) -> JsonStruct | None:
         response = self._client.get(path, params=clean_params(params))

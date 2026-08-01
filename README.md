@@ -5,7 +5,11 @@ The BrickLink API async+sync python wrapper
 > **Not there yet.** `brikz` has no working functionality. Don't add it
 > as a dependency yet. Working hard to bring this to you all.
 
-`brikz` has both a sync and an async client. The API wrapper accepts either; if you pass it an async client, you need to `await` the API calls; otherwise just call it synchronously.
+`brikz` has both a sync and an async client. An API call is a value: a builder
+function like `catalog_item.get_item(...)` returns a `Request` carrying its path,
+its parameters and how to read the answer, and the client you hand it to executes
+it. Sync and async therefore differ in exactly one method -- `send` -- rather than
+once per endpoint.
 
 ## Example
 
@@ -16,6 +20,7 @@ import asyncio
 import os
 
 import brikz
+from brikz import ItemType, catalog_item
 
 credentials = brikz.BrickLinkCredentials(
     consumer_key=os.environ['BRICKLINK_CONSUMER_KEY'],
@@ -26,17 +31,21 @@ credentials = brikz.BrickLinkCredentials(
 
 # BrickLink gives back the sync client:
 with brikz.BrickLink(credentials) as client:
-    item = client.catalog_item.get_item('SET', '6608-1')
+    item = client.send(catalog_item.get_item(ItemType.SET, '6608-1'))
     print(item)
 
 async def async_call():
     # AsyncBrickLink gives back (surprise!) the async client ;)
     async with brikz.AsyncBrickLink(credentials) as client:
-        item = await client.catalog_item.get_item('SET', '6608-1')
+        item = await client.send(catalog_item.get_item(ItemType.SET, '6608-1'))
         print(item)
 
 asyncio.run(async_call())
 ```
+
+The same `Request` goes to either client, so the two spellings above differ only
+in the `await`. Each sub-API is a module of builders -- `catalog_item`, then
+`category`, `color`, `order` as they arrive.
 
 ## The BrickLink API
 
