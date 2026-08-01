@@ -14,10 +14,10 @@ from __future__ import annotations
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
-
 
 class describe_item_path:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
     def it_builds_the_items_path_from_the_type_and_the_number(self): ...
 
     def it_appends_the_sub_resource_segments_it_is_given(self): ...
@@ -34,6 +34,8 @@ class describe_item_path:
 
 
 class describe_get_item:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
     def it_points_at_the_item_path(self): ...
 
     def it_asks_for_no_query_parameters(self): ...
@@ -42,12 +44,16 @@ class describe_get_item:
 
 
 class describe_get_item_image:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
     def it_points_at_the_image_path_for_the_color(self): ...
 
     def it_reads_the_answer_as_an_item(self): ...
 
 
 class describe_get_supersets:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
     def it_points_at_the_supersets_path(self): ...
 
     def it_narrows_the_supersets_to_a_single_color(self): ...
@@ -58,6 +64,8 @@ class describe_get_supersets:
 
 
 class describe_get_subsets:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
     def it_points_at_the_subsets_path(self): ...
 
     def it_narrows_the_subsets_to_a_single_color(self): ...
@@ -72,6 +80,8 @@ class describe_get_subsets:
 
 
 class describe_get_price_guide:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
     def it_points_at_the_price_path(self): ...
 
     def it_asks_for_the_sold_statistics_instead_of_the_stock_ones(self): ...
@@ -92,12 +102,16 @@ class describe_get_price_guide:
 
 
 class describe_get_known_colors:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
     def it_points_at_the_colors_path(self): ...
 
     def it_reads_the_answer_as_known_colors(self): ...
 
 
 class describe_parse_item:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
     def it_reads_the_documented_fields(self): ...
 
     def it_leaves_the_fields_bricklink_omits_unset(self): ...
@@ -110,6 +124,8 @@ class describe_parse_item:
 
 
 class describe_parse_superset_entries:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
     def it_groups_the_including_items_by_color(self): ...
 
     def it_reads_the_nested_item_reference(self): ...
@@ -118,6 +134,8 @@ class describe_parse_superset_entries:
 
 
 class describe_parse_subset_entries:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
     def it_groups_the_included_items_by_matching(self): ...
 
     def it_reads_the_nested_item_reference(self): ...
@@ -126,6 +144,8 @@ class describe_parse_subset_entries:
 
 
 class describe_parse_price_guide:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
     def it_reads_the_price_statistics(self): ...
 
     def it_reads_every_price_as_a_decimal(self): ...
@@ -140,4 +160,6 @@ class describe_parse_price_guide:
 
 
 class describe_parse_known_colors:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
     def it_reads_the_color_ids_and_the_quantities(self): ...

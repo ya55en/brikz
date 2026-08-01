@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
-
 
 class describe_a_lenient_enum:
+    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+
     def it_resolves_a_value_it_knows(self): ...
 
     def it_accepts_a_value_bricklink_added_after_us(self): ...
