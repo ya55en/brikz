@@ -4,29 +4,38 @@ TEST_PYPI_URL=https://test.pypi.org/legacy/
 
 VERSION := $(shell sed -n 's/^__version__ = "\(.*\)"/\1/p' src/brikz/__init__.py)
 PY_SOURCES := $(shell find src/brikz/ -name '*.py')
+TEST_SOURCES := $(shell find tests/ -type f)
 WHEEL := dist/brikz-$(VERSION)-py3-none-any.whl
 SDIST := dist/brikz-$(VERSION).tar.gz
+
+PYTEST_ARGS ?= -q
 
 sync:
 	uv sync
 
-$(WHEEL) $(SDIST) &: $(PY_SOURCES) pyproject.toml
+$(WHEEL) $(SDIST) &: $(PY_SOURCES) pyproject.toml README.md LICENSE
 	uv build
 
 build: $(WHEEL) $(SDIST)
 
 test:
-	uv run pytest
+	uv run pytest $(PYTEST_ARGS)
 
-test-cov:
+htmlcov/index.html: $(PY_SOURCES) $(TEST_SOURCES) pyproject.toml
 	rm -rf htmlcov/
 	uv run pytest -q --cov --cov-report=html --cov-report=term-missing
+	@echo "Go to file://$(PWD)/htmlcov/index.html"
+
+test-cov:  htmlcov/index.html
 
 test-cov-http:  test-cov
-	python3 -m http.server 8000 -d htmlcov/
+	uv run python3 -m http.server 8009 -b 127.0.0.1 -d htmlcov/
+
+format:
+	uv run ruff format .
 
 lint:
-	uv run ruff check .
+	uv run ruff check $(LINT_FIX) .
 	uv run basedpyright
 
 publish: clean build  # older dist files break the uplaod, so clean first
@@ -50,4 +59,4 @@ clean-all:  clean
 	rm -rf .venv
 
 
-.PHONY: sync test test-cov lint build publish clean clean-all
+.PHONY: sync build test test-cov test-cov-http format lint publish clean clean-all
