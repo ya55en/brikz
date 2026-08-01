@@ -178,11 +178,6 @@ class MalformedResponseError(BrikzError):
 
 @cache
 def user_agent() -> str:
-    from importlib.metadata import metadata
+    from brikz import __version__
 
-    assert __package__ is not None
-
-    _pkg_name = metadata(__package__)["Name"]
-    _pkg_version = metadata(__package__)["Version"]
-
-    return f"{_pkg_name}/{_pkg_version}"
+    return f"brikz/{__version__}"

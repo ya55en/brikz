@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import dataclasses
-from importlib.metadata import version
 
 import httpx
 import pytest
 from authlib.integrations.httpx_client import OAuth1Auth
 
+from brikz import __version__
 from brikz.core import (
     BASE_URL,
     AsyncBrickLink,
@@ -336,25 +336,13 @@ class describe_clean_params:
 
 
 class describe_user_agent:
-    def it_reads_the_name_and_version_off_the_package_metadata(self):
-        assert user_agent() == f"brikz/{version('brikz')}"
+    def it_reads_the_name_and_version_off_the_package(self):
+        assert user_agent() == f"brikz/{__version__}"
 
-    def it_computes_the_string_only_once(self, monkeypatch: pytest.MonkeyPatch):
-        from importlib import metadata as importlib_metadata
-
+    def it_computes_the_string_only_once(self):
         user_agent.cache_clear()
-        calls = 0
-        original_metadata = importlib_metadata.metadata
-
-        def counting_metadata(name: str):
-            nonlocal calls
-            calls += 1
-            return original_metadata(name)
-
-        monkeypatch.setattr(importlib_metadata, "metadata", counting_metadata)
-
-        user_agent()
-        user_agent()
-
-        # the body reads metadata twice (name, version) but only ever runs once
-        assert calls == 2
+        try:
+            first = user_agent()
+            assert user_agent() is first  # same object => not recomputed
+        finally:
+            user_agent.cache_clear()
