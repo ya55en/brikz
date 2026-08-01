@@ -14,7 +14,23 @@ from __future__ import annotations
 
 import pytest
 
-from brikz.catalog_item import item_path
+from brikz.catalog_item import (
+    get_item,
+    get_item_image,
+    get_known_colors,
+    get_price_guide,
+    get_subsets,
+    get_supersets,
+    item_path,
+    parse_item,
+    parse_known_colors,
+    parse_price_guide,
+    parse_subset_entries,
+    parse_superset_entries,
+)
+from brikz.core import clean_params
+from brikz.enums.catalog_item import GuideType, Region, VatOption
+from brikz.enums.shared import ItemType, NewOrUsed
 
 
 class describe_item_path:
@@ -43,79 +59,147 @@ class describe_item_path:
 
 
 class describe_get_item:
-    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+    def it_points_at_the_item_path(self):
+        request = get_item(ItemType.SET, "6608-1")
 
-    def it_points_at_the_item_path(self): ...
+        assert request.path == item_path(ItemType.SET, "6608-1")
 
-    def it_asks_for_no_query_parameters(self): ...
+    def it_asks_for_no_query_parameters(self):
+        request = get_item(ItemType.SET, "6608-1")
 
-    def it_reads_the_answer_as_an_item(self): ...
+        assert clean_params(request.params) == {}
+
+    def it_reads_the_answer_as_an_item(self):
+        request = get_item(ItemType.SET, "6608-1")
+
+        assert request.parse is parse_item
 
 
 class describe_get_item_image:
-    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+    def it_points_at_the_image_path_for_the_color(self):
+        request = get_item_image(ItemType.SET, "6608-1", 5)
 
-    def it_points_at_the_image_path_for_the_color(self): ...
+        assert request.path == item_path(ItemType.SET, "6608-1", "images", 5)
 
-    def it_reads_the_answer_as_an_item(self): ...
+    def it_reads_the_answer_as_an_item(self):
+        request = get_item_image(ItemType.SET, "6608-1", 5)
+
+        assert request.parse is parse_item
 
 
 class describe_get_supersets:
-    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+    def it_points_at_the_supersets_path(self):
+        request = get_supersets(ItemType.PART, "3001old")
 
-    def it_points_at_the_supersets_path(self): ...
+        assert request.path == item_path(ItemType.PART, "3001old", "supersets")
 
-    def it_narrows_the_supersets_to_a_single_color(self): ...
+    def it_narrows_the_supersets_to_a_single_color(self):
+        request = get_supersets(ItemType.PART, "3001old", color_id=5)
 
-    def it_asks_for_every_color_when_given_no_color(self): ...
+        assert request.params["color_id"] == 5
 
-    def it_reads_the_answer_as_superset_entries(self): ...
+    def it_asks_for_every_color_when_given_no_color(self):
+        request = get_supersets(ItemType.PART, "3001old")
+
+        assert clean_params(request.params) == {}
+
+    def it_reads_the_answer_as_superset_entries(self):
+        request = get_supersets(ItemType.PART, "3001old")
+
+        assert request.parse is parse_superset_entries
 
 
 class describe_get_subsets:
-    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+    def it_points_at_the_subsets_path(self):
+        request = get_subsets(ItemType.SET, "7644-1")
 
-    def it_points_at_the_subsets_path(self): ...
+        assert request.path == item_path(ItemType.SET, "7644-1", "subsets")
 
-    def it_narrows_the_subsets_to_a_single_color(self): ...
+    def it_narrows_the_subsets_to_a_single_color(self):
+        request = get_subsets(ItemType.PART, "3001old", color_id=5)
 
-    def it_asks_for_the_box_and_the_instruction_when_told_to(self): ...
+        assert request.params["color_id"] == 5
 
-    def it_breaks_minifigs_and_sets_down_when_told_to(self): ...
+    def it_asks_for_the_box_and_the_instruction_when_told_to(self):
+        request = get_subsets(ItemType.SET, "7644-1", box=True, instruction=True)
 
-    def it_leaves_out_every_option_it_is_not_given(self): ...
+        assert request.params["box"] is True
+        assert request.params["instruction"] is True
 
-    def it_reads_the_answer_as_subset_entries(self): ...
+    def it_breaks_minifigs_and_sets_down_when_told_to(self):
+        request = get_subsets(ItemType.SET, "7644-1", break_minifigs=True, break_subsets=True)
+
+        assert request.params["break_minifigs"] is True
+        assert request.params["break_subsets"] is True
+
+    def it_leaves_out_every_option_it_is_not_given(self):
+        request = get_subsets(ItemType.SET, "7644-1")
+
+        assert clean_params(request.params) == {}
+
+    def it_reads_the_answer_as_subset_entries(self):
+        request = get_subsets(ItemType.SET, "7644-1")
+
+        assert request.parse is parse_subset_entries
 
 
 class describe_get_price_guide:
-    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+    def it_points_at_the_price_path(self):
+        request = get_price_guide(ItemType.SET, "7644-1")
 
-    def it_points_at_the_price_path(self): ...
+        assert request.path == item_path(ItemType.SET, "7644-1", "price")
 
-    def it_asks_for_the_sold_statistics_instead_of_the_stock_ones(self): ...
+    def it_asks_for_the_sold_statistics_instead_of_the_stock_ones(self):
+        request = get_price_guide(ItemType.SET, "7644-1", guide_type=GuideType.SOLD)
 
-    def it_asks_for_the_used_condition(self): ...
+        assert request.params["guide_type"] == GuideType.SOLD
 
-    def it_narrows_the_price_guide_to_one_country(self): ...
+    def it_asks_for_the_used_condition(self):
+        request = get_price_guide(ItemType.SET, "7644-1", new_or_used=NewOrUsed.USED)
 
-    def it_narrows_the_price_guide_to_one_region(self): ...
+        assert request.params["new_or_used"] == NewOrUsed.USED
 
-    def it_asks_for_the_prices_in_a_given_currency(self): ...
+    def it_narrows_the_price_guide_to_one_country(self):
+        request = get_price_guide(ItemType.SET, "7644-1", country_code="US")
 
-    def it_asks_for_the_prices_with_vat_included(self): ...
+        assert request.params["country_code"] == "US"
 
-    def it_leaves_out_every_option_it_is_not_given(self): ...
+    def it_narrows_the_price_guide_to_one_region(self):
+        request = get_price_guide(ItemType.SET, "7644-1", region=Region.EUROPE)
 
-    def it_reads_the_answer_as_a_price_guide(self): ...
+        assert request.params["region"] == Region.EUROPE
+
+    def it_asks_for_the_prices_in_a_given_currency(self):
+        request = get_price_guide(ItemType.SET, "7644-1", currency_code="EUR")
+
+        assert request.params["currency_code"] == "EUR"
+
+    def it_asks_for_the_prices_with_vat_included(self):
+        request = get_price_guide(ItemType.SET, "7644-1", vat=VatOption.INCLUDE)
+
+        assert request.params["vat"] == VatOption.INCLUDE
+
+    def it_leaves_out_every_option_it_is_not_given(self):
+        request = get_price_guide(ItemType.SET, "7644-1")
+
+        assert clean_params(request.params) == {}
+
+    def it_reads_the_answer_as_a_price_guide(self):
+        request = get_price_guide(ItemType.SET, "7644-1")
+
+        assert request.parse is parse_price_guide
 
 
 class describe_get_known_colors:
-    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+    def it_points_at_the_colors_path(self):
+        request = get_known_colors(ItemType.PART, "3001")
 
-    def it_points_at_the_colors_path(self): ...
+        assert request.path == item_path(ItemType.PART, "3001", "colors")
 
-    def it_reads_the_answer_as_known_colors(self): ...
+    def it_reads_the_answer_as_known_colors(self):
+        request = get_known_colors(ItemType.PART, "3001")
+
+        assert request.parse is parse_known_colors
 
 
 class describe_parse_item:

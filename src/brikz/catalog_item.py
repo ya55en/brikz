@@ -136,7 +136,7 @@ class KnownColor:
 
 def get_item(item_type: ItemType, item_no: str) -> Request[Item]:
     """GET /items/{type}/{no} -- one catalog item."""
-    raise NotImplementedError
+    return Request(path=item_path(item_type, item_no), parse=parse_item)
 
 
 def get_item_image(item_type: ItemType, item_no: str, color_id: int) -> Request[Item]:
@@ -145,7 +145,7 @@ def get_item_image(item_type: ItemType, item_no: str, color_id: int) -> Request[
     Answers a sparse `Item`: BrickLink fills only `no`, `type` and
     `thumbnail_url`.
     """
-    raise NotImplementedError
+    return Request(path=item_path(item_type, item_no, "images", color_id), parse=parse_item)
 
 
 def get_supersets(
@@ -155,7 +155,11 @@ def get_supersets(
     color_id: int | None = None,
 ) -> Request[tuple[SupersetEntry, ...]]:
     """GET /items/{type}/{no}/supersets -- the items that include this one."""
-    raise NotImplementedError
+    return Request(
+        path=item_path(item_type, item_no, "supersets"),
+        parse=parse_superset_entries,
+        params={"color_id": color_id},
+    )
 
 
 def get_subsets(
@@ -169,7 +173,17 @@ def get_subsets(
     break_subsets: bool | None = None,
 ) -> Request[tuple[SubsetEntry, ...]]:
     """GET /items/{type}/{no}/subsets -- the items included in this one."""
-    raise NotImplementedError
+    return Request(
+        path=item_path(item_type, item_no, "subsets"),
+        parse=parse_subset_entries,
+        params={
+            "color_id": color_id,
+            "box": box,
+            "instruction": instruction,
+            "break_minifigs": break_minifigs,
+            "break_subsets": break_subsets,
+        },
+    )
 
 
 def get_price_guide(
@@ -185,12 +199,24 @@ def get_price_guide(
     vat: VatOption | None = None,
 ) -> Request[PriceGuide]:
     """GET /items/{type}/{no}/price -- price statistics for this item."""
-    raise NotImplementedError
+    return Request(
+        path=item_path(item_type, item_no, "price"),
+        parse=parse_price_guide,
+        params={
+            "color_id": color_id,
+            "guide_type": guide_type,
+            "new_or_used": new_or_used,
+            "country_code": country_code,
+            "region": region,
+            "currency_code": currency_code,
+            "vat": vat,
+        },
+    )
 
 
 def get_known_colors(item_type: ItemType, item_no: str) -> Request[tuple[KnownColor, ...]]:
     """GET /items/{type}/{no}/colors -- the colors this item is known in."""
-    raise NotImplementedError
+    return Request(path=item_path(item_type, item_no, "colors"), parse=parse_known_colors)
 
 
 # --- Parsers ----------------------------------------------------------------
