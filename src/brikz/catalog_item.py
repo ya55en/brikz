@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 from .core import JsonStruct, Request
 
@@ -226,4 +227,10 @@ def item_path(item_type: str, item_no: str, *segments: str | int) -> str:
     Raises ValueError on a blank type or number: those build a structurally
     different URL rather than a merely invalid one.
     """
-    raise NotImplementedError
+    if not item_type:
+        raise ValueError("item type must not be blank")
+    if not item_no:
+        raise ValueError("item number must not be blank")
+
+    parts = (item_type, item_no, *segments)
+    return "/items/" + "/".join(quote(str(part), safe="") for part in parts)

@@ -14,23 +14,32 @@ from __future__ import annotations
 
 import pytest
 
+from brikz.catalog_item import item_path
+
 
 class describe_item_path:
-    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+    def it_builds_the_items_path_from_the_type_and_the_number(self):
+        assert item_path("SET", "6608-1") == "/items/SET/6608-1"
 
-    def it_builds_the_items_path_from_the_type_and_the_number(self): ...
+    def it_appends_the_sub_resource_segments_it_is_given(self):
+        assert item_path("SET", "6608-1", "supersets") == "/items/SET/6608-1/supersets"
 
-    def it_appends_the_sub_resource_segments_it_is_given(self): ...
+    def it_accepts_an_integer_segment(self):
+        assert item_path("SET", "6608-1", "images", 5) == "/items/SET/6608-1/images/5"
 
-    def it_accepts_an_integer_segment(self): ...
+    def it_percent_encodes_a_number_that_contains_a_slash(self):
+        assert item_path("PART", "3001/old") == "/items/PART/3001%2Fold"
 
-    def it_percent_encodes_a_number_that_contains_a_slash(self): ...
+    def it_percent_encodes_a_number_that_contains_a_hash(self):
+        assert item_path("SET", "6608-1#1") == "/items/SET/6608-1%231"
 
-    def it_percent_encodes_a_number_that_contains_a_hash(self): ...
+    def it_refuses_a_blank_item_number(self):
+        with pytest.raises(ValueError, match="number"):
+            item_path("SET", "")
 
-    def it_refuses_a_blank_item_number(self): ...
-
-    def it_refuses_a_blank_item_type(self): ...
+    def it_refuses_a_blank_item_type(self):
+        with pytest.raises(ValueError, match="type"):
+            item_path("", "6608-1")
 
 
 class describe_get_item:
