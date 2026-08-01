@@ -52,6 +52,8 @@ python_functions = ["test_*", "it_*"]
 addopts = "--spec"
 # keep unit CamelCase name unsplit
 spec_container_format = "describe {unit_name}:"
+filterwarnings = ["error"]
+xfail_strict = true
 
 [tool.coverage.run]
 source = ["src/brikz"]

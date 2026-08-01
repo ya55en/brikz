@@ -44,6 +44,11 @@ def capturing_transport() -> tuple[httpx.MockTransport, list[httpx.Request]]:
     return httpx.MockTransport(handler), captured
 
 
+def envelope_response(json_body: dict[str, object], status_code: int = 200) -> httpx.Response:
+    request = httpx.Request("GET", "https://api.bricklink.com/api/store/v1/items/SET/1")
+    return httpx.Response(status_code, json=json_body, request=request)
+
+
 CREDENTIALS = BrickLinkCredentials(
     consumer_key="a-consumer-key",
     consumer_secret="a-consumer-secret",
@@ -266,11 +271,6 @@ class describe_AsyncBrickLink:
             pass
 
         assert client._client.is_closed
-
-
-def envelope_response(json_body: dict[str, object], status_code: int = 200) -> httpx.Response:
-    request = httpx.Request("GET", "https://api.bricklink.com/api/store/v1/items/SET/1")
-    return httpx.Response(status_code, json=json_body, request=request)
 
 
 class describe_unwrap:
