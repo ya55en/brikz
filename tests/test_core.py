@@ -79,6 +79,9 @@ class describe_BrickLinkCredentials:
         assert auth.token == "a-token"
         assert auth.token_secret == "a-token-secret"
 
+    def it_builds_a_fresh_auth_flow_for_every_client(self):
+        assert CREDENTIALS.auth() is not CREDENTIALS.auth()
+
 
 class describe_BrickLinkAPIError:
     def it_is_a_brikz_error(self):
@@ -165,6 +168,17 @@ class describe_BrickLink:
         with BrickLink(CREDENTIALS, transport=transport) as client:
             assert client.get("/items/SET/1") == {"foo": "bar"}
 
+    def it_lets_an_api_error_escape_get(self):
+        transport = envelope_transport(
+            {"meta": {"code": 404, "message": "RESOURCE_NOT_FOUND"}}, status_code=404
+        )
+
+        with (
+            BrickLink(CREDENTIALS, transport=transport) as client,
+            pytest.raises(BrickLinkAPIError),
+        ):
+            client.get("/items/SET/1")
+
     def it_leaves_unset_query_parameters_out_of_the_request(self):
         transport, captured = capturing_transport()
 
@@ -222,6 +236,15 @@ class describe_AsyncBrickLink:
 
         async with AsyncBrickLink(CREDENTIALS, transport=transport) as client:
             assert await client.get("/items/SET/1") == {"foo": "bar"}
+
+    async def it_lets_an_api_error_escape_get(self):
+        transport = envelope_transport(
+            {"meta": {"code": 404, "message": "RESOURCE_NOT_FOUND"}}, status_code=404
+        )
+
+        async with AsyncBrickLink(CREDENTIALS, transport=transport) as client:
+            with pytest.raises(BrickLinkAPIError):
+                await client.get("/items/SET/1")
 
     async def it_leaves_unset_query_parameters_out_of_the_request(self):
         transport, captured = capturing_transport()
