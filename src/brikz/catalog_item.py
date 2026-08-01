@@ -11,17 +11,17 @@ Stubs only. See docs/design/notes.md for the reasoning behind the shape.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from datetime import datetime
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 from .core import JsonStruct, Request
+from .enums.catalog_item import AppearAs
+from .enums.shared import ItemType, NewOrUsed
 
 if TYPE_CHECKING:
-    from datetime import datetime
-    from decimal import Decimal
-
-    from .enums.catalog_item import AppearAs, GuideType, Region, VatOption
-    from .enums.shared import ItemType, NewOrUsed
+    from .enums.catalog_item import GuideType, Region, VatOption
 
 
 # --- Models -----------------------------------------------------------------
@@ -224,27 +224,128 @@ def get_known_colors(item_type: ItemType, item_no: str) -> Request[tuple[KnownCo
 
 def parse_item(data: JsonStruct | None) -> Item:
     """Read an `Item` off the envelope's data."""
-    raise NotImplementedError
+    if not isinstance(data, dict):
+        raise ValueError(f"expected an item object, got {data!r}")  # noqa: TRY004
+
+    weight = data.get("weight")
+    dim_x = data.get("dim_x")
+    dim_y = data.get("dim_y")
+    dim_z = data.get("dim_z")
+    year_released = data.get("year_released")
+    category_id = data.get("category_id")
+    if category_id is None:
+        category_id = data.get("categoryID")
+
+    return Item(
+        no=str(data["no"]),
+        type=ItemType(data["type"]),
+        name=data.get("name"),
+        category_id=int(category_id) if category_id is not None else None,
+        alternate_no=data.get("alternate_no"),
+        image_url=data.get("image_url"),
+        thumbnail_url=data.get("thumbnail_url"),
+        weight=Decimal(weight) if weight is not None else None,
+        dim_x=Decimal(dim_x) if dim_x is not None else None,
+        dim_y=Decimal(dim_y) if dim_y is not None else None,
+        dim_z=Decimal(dim_z) if dim_z is not None else None,
+        year_released=int(year_released) if year_released is not None else None,
+        description=data.get("description"),
+        is_obsolete=data.get("is_obsolete"),
+        language_code=data.get("language_code"),
+    )
 
 
 def parse_superset_entries(data: JsonStruct | None) -> tuple[SupersetEntry, ...]:
     """Read the superset entries off the envelope's data."""
-    raise NotImplementedError
+    if not isinstance(data, list):
+        raise ValueError(f"expected a list of superset entries, got {data!r}")  # noqa: TRY004
+
+    return tuple(_parse_superset_entry(entry) for entry in data)
+
+
+def _parse_superset_entry(entry: Any) -> SupersetEntry:
+    items = tuple(_parse_superset_item(item) for item in entry["entries"])
+    return SupersetEntry(color_id=int(entry["color_id"]), entries=items)
+
+
+def _parse_superset_item(entry: Any) -> SupersetItem:
+    appear_as = entry.get("appear_as")
+    if appear_as is None:
+        appear_as = entry.get("appears_as")
+
+    return SupersetItem(
+        item=parse_item(entry["item"]),
+        quantity=int(entry["quantity"]),
+        appear_as=AppearAs(appear_as) if appear_as is not None else None,
+    )
 
 
 def parse_subset_entries(data: JsonStruct | None) -> tuple[SubsetEntry, ...]:
     """Read the subset entries off the envelope's data."""
-    raise NotImplementedError
+    if not isinstance(data, list):
+        raise ValueError(f"expected a list of subset entries, got {data!r}")  # noqa: TRY004
+
+    return tuple(_parse_subset_entry(entry) for entry in data)
+
+
+def _parse_subset_entry(entry: Any) -> SubsetEntry:
+    items = tuple(_parse_subset_item(item) for item in entry["entries"])
+    return SubsetEntry(match_no=int(entry["match_no"]), entries=items)
+
+
+def _parse_subset_item(entry: Any) -> SubsetItem:
+    color_id = entry.get("color_id")
+    return SubsetItem(
+        item=parse_item(entry["item"]),
+        color_id=int(color_id) if color_id is not None else None,
+        quantity=int(entry.get("quantity", 0)),
+        extra_quantity=int(entry.get("extra_quantity", 0)),
+        is_alternate=bool(entry.get("is_alternate", False)),
+        is_counterpart=bool(entry.get("is_counterpart", False)),
+    )
 
 
 def parse_price_guide(data: JsonStruct | None) -> PriceGuide:
     """Read a `PriceGuide` off the envelope's data."""
-    raise NotImplementedError
+    if not isinstance(data, dict):
+        raise ValueError(f"expected a price guide object, got {data!r}")  # noqa: TRY004
+
+    price_detail: list[Any] = data.get("price_detail") or []
+    return PriceGuide(
+        item=parse_item(data["item"]),
+        new_or_used=NewOrUsed(data["new_or_used"]),
+        currency_code=str(data["currency_code"]),
+        min_price=Decimal(data["min_price"]),
+        max_price=Decimal(data["max_price"]),
+        avg_price=Decimal(data["avg_price"]),
+        qty_avg_price=Decimal(data["qty_avg_price"]),
+        unit_quantity=int(data["unit_quantity"]),
+        total_quantity=int(data["total_quantity"]),
+        price_detail=tuple(_parse_price_detail(row) for row in price_detail),
+    )
+
+
+def _parse_price_detail(row: Any) -> PriceDetail:
+    date_ordered = row.get("date_ordered")
+    return PriceDetail(
+        quantity=int(row["quantity"]),
+        unit_price=Decimal(row["unit_price"]),
+        shipping_available=row.get("shipping_available"),
+        seller_country_code=row.get("seller_country_code"),
+        buyer_country_code=row.get("buyer_country_code"),
+        date_ordered=datetime.fromisoformat(date_ordered) if date_ordered is not None else None,
+    )
 
 
 def parse_known_colors(data: JsonStruct | None) -> tuple[KnownColor, ...]:
     """Read the known colors off the envelope's data."""
-    raise NotImplementedError
+    if not isinstance(data, list):
+        raise ValueError(f"expected a list of known colors, got {data!r}")  # noqa: TRY004
+
+    return tuple(
+        KnownColor(color_id=int(entry["color_id"]), quantity=int(entry["quantity"]))
+        for entry in data
+    )
 
 
 def item_path(item_type: str, item_no: str, *segments: str | int) -> str:
