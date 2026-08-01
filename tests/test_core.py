@@ -323,6 +323,49 @@ class describe_unwrap:
         with pytest.raises(MalformedResponseError):
             unwrap(response)
 
+    def it_accepts_a_list_as_data(self):
+        response = envelope_response({"meta": {"code": 200}, "data": [1, 2]})
+
+        assert unwrap(response) == [1, 2]
+
+    def it_reports_a_malformed_response_when_the_body_is_a_bare_list(self):
+        request = httpx.Request("GET", "https://api.bricklink.com/api/store/v1/items/SET/1")
+        response = httpx.Response(200, json=[1, 2, 3], request=request)
+
+        with pytest.raises(MalformedResponseError):
+            unwrap(response)
+
+    def it_coerces_a_string_meta_code(self):
+        response = envelope_response({"meta": {"code": "200"}, "data": {"foo": "bar"}})
+
+        assert unwrap(response) == {"foo": "bar"}
+
+    def it_reports_a_malformed_response_when_meta_code_is_missing(self):
+        response = envelope_response({"meta": {}, "data": {"foo": "bar"}})
+
+        with pytest.raises(MalformedResponseError):
+            unwrap(response)
+
+    def it_returns_none_for_a_body_less_204_response(self):
+        request = httpx.Request("DELETE", "https://api.bricklink.com/api/store/v1/items/SET/1")
+        response = httpx.Response(204, request=request)
+
+        assert unwrap(response) is None
+
+    def it_reports_the_http_status_for_a_body_less_error_response(self):
+        request = httpx.Request("DELETE", "https://api.bricklink.com/api/store/v1/items/SET/1")
+        response = httpx.Response(500, request=request)
+
+        with pytest.raises(httpx.HTTPStatusError):
+            unwrap(response)
+
+    def it_trusts_the_envelope_over_the_http_status(self):
+        # A well-formed 2xx envelope on a non-2xx transport status is treated
+        # as success: meta.code, not the HTTP status, is the source of truth.
+        response = envelope_response({"meta": {"code": 200}, "data": {"a": 1}}, status_code=500)
+
+        assert unwrap(response) == {"a": 1}
+
 
 class describe_clean_params:
     def it_drops_the_parameters_that_are_unset(self):

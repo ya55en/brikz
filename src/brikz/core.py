@@ -111,24 +111,20 @@ class BrickLink:
 
 def unwrap(response: httpx.Response) -> JsonStruct | None:
     """Validate a BrickLink API response envelope and return its "data" field."""
-    meta: Any = None
-    code: int = 0
-    parse_error: Exception | None = None
+    if not response.content:
+        # A body-less response, like a 204 from a DELETE, is legit.
+        response.raise_for_status()
+        return None
 
     try:
-        body: dict[str, Any] = response.json()
-        meta = body["meta"]
+        body: Any = response.json()
+        meta: Any = body["meta"]
         code = int(meta["code"])
 
     except (ValueError, TypeError, KeyError) as err:
-        meta = None
-        body = {}
-        parse_error = err
-
-    if meta is None:
         # Not a BrickLink envelope (gateway error page, HTML, ...).
         response.raise_for_status()
-        raise MalformedResponseError(response) from parse_error
+        raise MalformedResponseError(response) from err
 
     if code // 100 != 2:  # not a 2xx response
         raise BrickLinkAPIError(
@@ -140,8 +136,6 @@ def unwrap(response: httpx.Response) -> JsonStruct | None:
     # The envelope is untyped JSON; assert the shape at this single boundary
     # rather than leaking Any into every caller.
     data = body.get("data")
-
-    # `None` is legit for body-less responses, like a DELETE response
     if not isinstance(data, (dict, list, NoneType)):
         raise MalformedResponseError(response)
 
