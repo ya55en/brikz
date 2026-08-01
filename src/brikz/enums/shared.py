@@ -16,7 +16,14 @@ class LenientStrEnum(StrEnum):
     @classmethod
     def _missing_(cls, value: Any) -> LenientStrEnum | None:
         """Synthesize a member for an unrecognized value."""
-        raise NotImplementedError
+        if not isinstance(value, str):
+            return None
+
+        member = str.__new__(cls, value)
+        member._name_ = value
+        member._value_ = value
+        cls._value2member_map_[value] = member
+        return member
 
 
 class ItemType(LenientStrEnum):
