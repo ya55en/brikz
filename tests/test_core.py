@@ -22,8 +22,6 @@ from brikz.core import (
     user_agent,
 )
 
-pytestmark = pytest.mark.anyio
-
 
 def envelope_transport(
     json_body: dict[str, object], status_code: int = 200
@@ -207,6 +205,8 @@ class describe_BrickLink:
 
 
 class describe_AsyncBrickLink:
+    pytestmark = pytest.mark.anyio
+
     async def it_talks_to_the_bricklink_api_by_default(self):
         async with AsyncBrickLink(CREDENTIALS) as client:
             assert str(client._client.base_url) == BASE_URL + "/"
