@@ -79,7 +79,7 @@ class AsyncBrickLink:
 
     async def send[T](self, request: Request[T]) -> T:
         """Execute a request and read its answer into the request's own type."""
-        raise NotImplementedError
+        return request.parse(await self.get(request.path, request.params))
 
     async def get(self, path: str, params: dict[str, Any] | None = None) -> JsonStruct | None:
         response = await self._client.get(path, params=clean_params(params))
@@ -118,7 +118,7 @@ class BrickLink:
 
     def send[T](self, request: Request[T]) -> T:
         """Execute a request and read its answer into the request's own type."""
-        raise NotImplementedError
+        return request.parse(self.get(request.path, request.params))
 
     def get(self, path: str, params: dict[str, Any] | None = None) -> JsonStruct | None:
         response = self._client.get(path, params=clean_params(params))

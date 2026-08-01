@@ -16,6 +16,7 @@ from brikz.core import (
     BrickLinkAPIError,
     BrickLinkCredentials,
     BrikzError,
+    JsonStruct,
     MalformedResponseError,
     Request,
     clean_params,
@@ -41,6 +42,11 @@ def capturing_transport() -> tuple[httpx.MockTransport, list[httpx.Request]]:
         return httpx.Response(200, json={"meta": {"code": 200}, "data": None}, request=request)
 
     return httpx.MockTransport(handler), captured
+
+
+def parse_foo(data: JsonStruct | None) -> object:
+    assert isinstance(data, dict)
+    return data["foo"]
 
 
 def envelope_response(json_body: dict[str, object], status_code: int = 200) -> httpx.Response:
@@ -297,28 +303,86 @@ class describe_Request:
 
 
 class describe_BrickLink_send:
-    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+    def it_gets_the_path_the_request_names(self):
+        transport, captured = capturing_transport()
+        request = Request(path="/items/SET/1", parse=lambda data: data)
 
-    def it_gets_the_path_the_request_names(self): ...
+        with BrickLink(CREDENTIALS, transport=transport) as client:
+            client.send(request)
 
-    def it_passes_the_query_parameters_the_request_carries(self): ...
+        assert captured[0].url.path == "/api/store/v1/items/SET/1"
 
-    def it_answers_with_whatever_the_requests_parser_returns(self): ...
+    def it_passes_the_query_parameters_the_request_carries(self):
+        transport, captured = capturing_transport()
+        request = Request(path="/items/SET/1", parse=lambda data: data, params={"color_id": 5})
 
-    def it_leaves_unset_query_parameters_out_of_the_request(self): ...
+        with BrickLink(CREDENTIALS, transport=transport) as client:
+            client.send(request)
 
-    def it_lets_an_api_error_escape(self): ...
+        assert captured[0].url.params["color_id"] == "5"
+
+    def it_answers_with_whatever_the_requests_parser_returns(self):
+        transport = envelope_transport({"meta": {"code": 200}, "data": {"foo": "bar"}})
+        request = Request(path="/items/SET/1", parse=parse_foo)
+
+        with BrickLink(CREDENTIALS, transport=transport) as client:
+            assert client.send(request) == "bar"
+
+    def it_leaves_unset_query_parameters_out_of_the_request(self):
+        transport, captured = capturing_transport()
+        request = Request(
+            path="/items/SET/1",
+            parse=lambda data: data,
+            params={"color_id": None, "region": "eu"},
+        )
+
+        with BrickLink(CREDENTIALS, transport=transport) as client:
+            client.send(request)
+
+        assert "color_id" not in captured[0].url.params
+        assert captured[0].url.params["region"] == "eu"
+
+    def it_lets_an_api_error_escape(self):
+        transport = envelope_transport(
+            {"meta": {"code": 404, "message": "RESOURCE_NOT_FOUND"}}, status_code=404
+        )
+        request = Request(path="/items/SET/1", parse=lambda data: data)
+
+        with (
+            BrickLink(CREDENTIALS, transport=transport) as client,
+            pytest.raises(BrickLinkAPIError),
+        ):
+            client.send(request)
 
 
-@pytest.mark.skip(reason="design stubs -- no implementation yet")
 class describe_AsyncBrickLink_send:
     pytestmark = pytest.mark.anyio
 
-    async def it_gets_the_path_the_request_names(self): ...
+    async def it_gets_the_path_the_request_names(self):
+        transport, captured = capturing_transport()
+        request = Request(path="/items/SET/1", parse=lambda data: data)
 
-    async def it_answers_with_whatever_the_requests_parser_returns(self): ...
+        async with AsyncBrickLink(CREDENTIALS, transport=transport) as client:
+            await client.send(request)
 
-    async def it_lets_an_api_error_escape(self): ...
+        assert captured[0].url.path == "/api/store/v1/items/SET/1"
+
+    async def it_answers_with_whatever_the_requests_parser_returns(self):
+        transport = envelope_transport({"meta": {"code": 200}, "data": {"foo": "bar"}})
+        request = Request(path="/items/SET/1", parse=parse_foo)
+
+        async with AsyncBrickLink(CREDENTIALS, transport=transport) as client:
+            assert await client.send(request) == "bar"
+
+    async def it_lets_an_api_error_escape(self):
+        transport = envelope_transport(
+            {"meta": {"code": 404, "message": "RESOURCE_NOT_FOUND"}}, status_code=404
+        )
+        request = Request(path="/items/SET/1", parse=lambda data: data)
+
+        async with AsyncBrickLink(CREDENTIALS, transport=transport) as client:
+            with pytest.raises(BrickLinkAPIError):
+                await client.send(request)
 
 
 class describe_unwrap:
