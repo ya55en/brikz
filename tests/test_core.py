@@ -17,6 +17,7 @@ from brikz.core import (
     BrickLinkCredentials,
     BrikzError,
     MalformedResponseError,
+    Request,
     clean_params,
     unwrap,
     user_agent,
@@ -274,13 +275,25 @@ class describe_AsyncBrickLink:
 
 
 class describe_Request:
-    pytestmark = pytest.mark.skip(reason="design stubs -- no implementation yet")
+    def it_carries_a_path_and_a_parser(self):
+        def parse(data: object) -> object:
+            return data
 
-    def it_carries_a_path_and_a_parser(self): ...
+        request = Request(path="/items/SET/1", parse=parse)
 
-    def it_carries_no_query_parameters_by_default(self): ...
+        assert request.path == "/items/SET/1"
+        assert request.parse is parse
 
-    def it_refuses_to_be_mutated(self): ...
+    def it_carries_no_query_parameters_by_default(self):
+        request = Request(path="/items/SET/1", parse=lambda data: data)
+
+        assert request.params == {}
+
+    def it_refuses_to_be_mutated(self):
+        request = Request(path="/items/SET/1", parse=lambda data: data)
+
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            request.path = "/items/SET/2"  # pyright: ignore[reportAttributeAccessIssue]
 
 
 class describe_BrickLink_send:
