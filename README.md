@@ -3,79 +3,8 @@
 The BrickLink API async+sync python wrapper
 
 > **Pre-alpha.** The transport and the Catalog Item endpoints are written; the
-> rest of the API is not, and the call shape below is going to change. Don't pin
-> it as a dependency yet.
-
-`brikz` has both a sync and an async client. An API call is a value:
-`catalog_item.get_item(ItemType.SET, '6608-1')` returns a `Request` carrying its
-path, its parameters and how to read the answer, and the client you hand it to
-executes it. Sync and async therefore differ in exactly one method -- `send` --
-rather than once per endpoint.
-
-## Where things stand
-
-| | state |
-|---|---|
-| `BrickLink`, `AsyncBrickLink`, `send` | written |
-| Catalog Item -- six endpoints, their parsers and models | written |
-| Category, Color, Order, and the rest | not started |
-
-Nothing here has a stable API. In particular the six flat `get_*` builders are
-on their way out: they will become methods on an `ItemRef` that names the item
-once, so `catalog_item.get_subsets(ItemType.SET, '6608-1', break_minifigs=True)`
-becomes `ItemRef(ItemType.SET, '6608-1').subsets(break_minifigs=True)`. See
-`docs/design/` for that decision and what it is meant to buy.
-
-## Example
-
-```python
-import asyncio
-import os
-
-import brikz
-from brikz import ItemType, NewOrUsed, catalog_item
-
-credentials = brikz.BrickLinkCredentials(
-    consumer_key=os.environ['BRICKLINK_CONSUMER_KEY'],
-    consumer_secret=os.environ['BRICKLINK_CONSUMER_SECRET'],
-    token=os.environ['BRICKLINK_TOKEN'],
-    token_secret=os.environ['BRICKLINK_TOKEN_SECRET'],
-)
-
-# A request is a plain value. Building one touches no network:
-get_item_request = catalog_item.get_item(ItemType.SET, '6608-1')
-print(get_item_request.path)  # /items/SET/6608-1
-
-# Sending it via the sync client:
-with brikz.BrickLink(credentials) as client:
-    item = client.send(get_item_request)
-    print(item.name, item.year_released)
-
-    # Every other Catalog Item endpoint is built the same way:
-    prices = client.send(
-        catalog_item.get_price_guide(ItemType.SET, '6608-1', new_or_used=NewOrUsed.USED)
-    )
-    parts = client.send(
-        catalog_item.get_subsets(ItemType.SET, '6608-1', break_minifigs=True)
-    )
-
-# The same request, sent by the async client:
-async def async_call():
-    async with brikz.AsyncBrickLink(credentials) as client:
-        item = await client.send(get_item_request)
-        print(item.name)
-
-asyncio.run(async_call())
-```
-
-The same `Request` goes to either client, so the two spellings above differ only
-in the `await`. Because building one is pure, requests can be made, inspected,
-logged or collected before anything goes out.
-
-`brikz` itself exports the clients, `Request`, the errors and BrickLink's
-enumerations; the models a response parses into -- `Item`, `PriceGuide`,
-`SubsetEntry` and the rest -- live in `brikz.models`. Each sub-API arrives as its
-own module: `catalog_item`, then `category`, `color`, `order`.
+> rest of the API is not, and nothing here has a stable API yet. Don't pin it as
+> a dependency.
 
 ## The BrickLink API
 
@@ -85,14 +14,146 @@ OAuth 1.0a-signed requests; see the [API docs](https://www.bricklink.com/v3/api.
 and the [API consumer console](https://www.bricklink.com/v2/api/register_consumer.page)
 where credentials are issued.
 
+## Example
+
+`brikz` has both a sync and an async client. An API call is a value:
+`ItemRef(ItemType.SET, '6608-1').get()` returns a `Request` carrying its path,
+its parameters and how to read the answer, and the client you hand it to
+executes it. Sync and async therefore differ in exactly one method -- `send` --
+rather than once per endpoint.
+
+```python
+import asyncio
+import os
+
+import brikz
+from brikz import ItemRef, ItemType, NewOrUsed
+
+credentials = brikz.BrickLinkCredentials(
+    consumer_key=os.environ['BRICKLINK_CONSUMER_KEY'],
+    consumer_secret=os.environ['BRICKLINK_CONSUMER_SECRET'],
+    token=os.environ['BRICKLINK_TOKEN'],
+    token_secret=os.environ['BRICKLINK_TOKEN_SECRET'],
+)
+
+# A reference to one catalog item, and a request to ask about it.
+# Both are plain values -- nothing has touched the network yet.
+set_6608 = ItemRef(ItemType.SET, '6608-1')
+print(set_6608.get().path)  # /items/SET/6608-1
+
+# Sending the request via the sync client:
+with brikz.BrickLink(credentials) as client:
+    item = client.send(set_6608.get())
+    print(item.name, item.year_released)
+
+    # The same reference builds every other Catalog Item request:
+    prices = client.send(set_6608.price_guide(new_or_used=NewOrUsed.USED))
+    groups = client.send(set_6608.subsets(break_minifigs=True))
+
+    # A parsed item is itself a key -- ask it the next question:
+    part = groups[0].entries[0].item
+    colors = client.send(part.ref().known_colors())
+
+# The same request, sent by the async client:
+async def async_call():
+    async with brikz.AsyncBrickLink(credentials) as client:
+        item = await client.send(set_6608.get())
+        print(item.name)
+
+asyncio.run(async_call())
+```
+
+### What an `ItemRef` is
+
+An `ItemRef` is two pieces of data -- an item type and an item number -- and
+nothing else:
+
+```python
+>>> ItemRef(ItemType.PART, '3001')
+ItemRef(type=<ItemType.PART: 'PART'>, no='3001')
+```
+
+If you have used other API wrappers, you may expect that object to be a live
+thing -- one that holds a connection, where calling a method fetches something.
+It is not, and they do not. An `ItemRef` is closer to a file path than to an
+open file: it *names* an item, and by itself it never talks to BrickLink.
+
+So its methods do not fetch anything either. They describe a fetch:
+
+```python
+>>> ItemRef(ItemType.PART, '3001').known_colors()
+Request(path='/items/PART/3001/colors', parse=<function parse_known_colors at 0x...>, params={})
+```
+
+That `Request` is a plain value too: a path, some query parameters, and the
+function that will turn the answer into a model. Nothing has been sent yet. To
+actually get the colors, hand it to a client:
+
+```python
+colors = client.send(ItemRef(ItemType.PART, '3001').known_colors())
+```
+
+Three things follow from that split, and they are the whole reason for it:
+
+- **One request works with both clients.** `send` is the only method that
+  differs between `BrickLink` and `AsyncBrickLink`, so the two spellings in the
+  example above differ only in the `await`. There is no separate async version
+  of every endpoint to learn.
+- **You can look before you leap.** A request can be printed, logged, stored,
+  compared, or collected into a list and sent later. Tests build requests and
+  check them without touching a network.
+- **Making one is free.** No connection, no handshake, nothing to close. Build a
+  thousand in a loop if you like.
+
+Because an `ItemRef` is only its two fields, two of them naming the same item
+are equal and interchangeable, and either can be used as a dictionary key:
+
+```python
+>>> ItemRef(ItemType.PART, '3001') == ItemRef(ItemType.PART, '3001')
+True
+```
+
+There is one thing an `ItemRef` does check: a blank type or number is refused
+the moment you make one, because the URL is `brikz`'s to get right. Everything
+else -- whether the item exists, whether the color is valid -- is BrickLink's
+call, and comes back as an error from `send`.
+
+Finally, `Item.ref()` closes the loop: any item in a response can turn itself
+back into an `ItemRef` and become the subject of the next question. That is what
+the `part.ref().known_colors()` line in the example does.
+
+### How the API is laid out
+
+Every Catalog Item endpoint hangs off `ItemRef`: `get`, `image`, `supersets`,
+`subsets`, `price_guide` and `known_colors`. Each sub-API arrives as its own
+module with its own reference type -- `catalog_item`, then `category`, `color`,
+`order` -- and `send` never changes.
+
+### What `brikz` exports
+
+The whole vocabulary lands at the top level: the clients, `Request`, the errors,
+BrickLink's enumerations, `ItemRef`, and the models a response parses into
+(`Item`, `PriceGuide`, `SubsetEntry` and the rest). The machinery that builds
+and reads requests stays behind its module -- `catalog_item.parse_item`,
+`catalog_item.item_path`.
+
+## Where things stand
+
+| | state |
+|---|---|
+| `BrickLink`, `AsyncBrickLink`, `send` | written |
+| Catalog Item -- `ItemRef`, six endpoints, their parsers and models | written |
+| Category, Color, Order, and the rest | not started |
+
 ## Development
 
 The project is managed via [uv](https://docs.astral.sh/uv/), which is a hard dependency.
 
 The `Makefile` is intended to make developers' life easier.
 
-- `make test` will not only run the tests (spec mode) but also build the virtual
-  environment if needed.
+- `make test` will not only run the tests but also build the virtual environment
+  if needed. It is quiet by default; `make test PYTEST_ARGS=` gives the full
+  spec output, and anything else in `PYTEST_ARGS` is passed to pytest.
 
 - `make format` and `make lint` -- they do what their names suggest ;)
 

@@ -1,17 +1,15 @@
 """Behaviour specs for the `catalog_item` module.
 
-Stubs only: each spec names one behaviour and has no body yet. Deleting the
-module-level skip below turns this list into the TDD worklist.
-
 Requests are values, so these need no client, no transport and no async: a
-builder spec compares a returned `Request` against the path, params and
-parser it should carry, and a parser spec feeds it a documented payload and
-checks the model that comes back. `send` is specced in test_core.py, where
-it lives.
+builder spec compares the `Request` an `ItemRef` method returns against the
+path, params and parser it should carry, and a parser spec feeds it a
+documented payload and checks the model that comes back. `send` is specced
+in test_core.py, where it lives.
 """
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime
 from decimal import Decimal
 
@@ -19,13 +17,8 @@ import pytest
 
 from brikz.catalog_item import (
     Item,
+    ItemRef,
     KnownColor,
-    get_item,
-    get_item_image,
-    get_known_colors,
-    get_price_guide,
-    get_subsets,
-    get_supersets,
     item_path,
     parse_item,
     parse_known_colors,
@@ -63,148 +56,184 @@ class describe_item_path:
             item_path("", "6608-1")
 
 
-class describe_get_item:
+class describe_ItemRef:
+    def it_refuses_a_blank_item_number(self):
+        with pytest.raises(ValueError, match="number"):
+            ItemRef(ItemType.SET, "")
+
+    def it_refuses_a_blank_item_type(self):
+        with pytest.raises(ValueError, match="type"):
+            ItemRef(ItemType(""), "6608-1")
+
+    def it_equals_another_reference_to_the_same_item(self):
+        assert ItemRef(ItemType.SET, "6608-1") == ItemRef(ItemType.SET, "6608-1")
+
+    def it_differs_from_a_reference_to_the_same_number_of_another_type(self):
+        assert ItemRef(ItemType.SET, "6608-1") != ItemRef(ItemType.PART, "6608-1")
+
+    def it_refuses_to_be_mutated(self):
+        ref = ItemRef(ItemType.SET, "6608-1")
+
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            ref.no = "6609-1"  # pyright: ignore[reportAttributeAccessIssue]
+
+
+class describe_ItemRef_get:
     def it_points_at_the_item_path(self):
-        request = get_item(ItemType.SET, "6608-1")
+        request = ItemRef(ItemType.SET, "6608-1").get()
 
         assert request.path == item_path(ItemType.SET, "6608-1")
 
     def it_asks_for_no_query_parameters(self):
-        request = get_item(ItemType.SET, "6608-1")
+        request = ItemRef(ItemType.SET, "6608-1").get()
 
         assert clean_params(request.params) == {}
 
     def it_reads_the_answer_as_an_item(self):
-        request = get_item(ItemType.SET, "6608-1")
+        request = ItemRef(ItemType.SET, "6608-1").get()
 
         assert request.parse is parse_item
 
 
-class describe_get_item_image:
+class describe_ItemRef_image:
     def it_points_at_the_image_path_for_the_color(self):
-        request = get_item_image(ItemType.SET, "6608-1", 5)
+        request = ItemRef(ItemType.SET, "6608-1").image(5)
 
         assert request.path == item_path(ItemType.SET, "6608-1", "images", 5)
 
     def it_reads_the_answer_as_an_item(self):
-        request = get_item_image(ItemType.SET, "6608-1", 5)
+        request = ItemRef(ItemType.SET, "6608-1").image(5)
 
         assert request.parse is parse_item
 
 
-class describe_get_supersets:
+class describe_ItemRef_supersets:
     def it_points_at_the_supersets_path(self):
-        request = get_supersets(ItemType.PART, "3001old")
+        request = ItemRef(ItemType.PART, "3001old").supersets()
 
         assert request.path == item_path(ItemType.PART, "3001old", "supersets")
 
     def it_narrows_the_supersets_to_a_single_color(self):
-        request = get_supersets(ItemType.PART, "3001old", color_id=5)
+        request = ItemRef(ItemType.PART, "3001old").supersets(color_id=5)
 
         assert request.params["color_id"] == 5
 
     def it_asks_for_every_color_when_given_no_color(self):
-        request = get_supersets(ItemType.PART, "3001old")
+        request = ItemRef(ItemType.PART, "3001old").supersets()
 
         assert clean_params(request.params) == {}
 
     def it_reads_the_answer_as_superset_entries(self):
-        request = get_supersets(ItemType.PART, "3001old")
+        request = ItemRef(ItemType.PART, "3001old").supersets()
 
         assert request.parse is parse_superset_entries
 
 
-class describe_get_subsets:
+class describe_ItemRef_subsets:
     def it_points_at_the_subsets_path(self):
-        request = get_subsets(ItemType.SET, "7644-1")
+        request = ItemRef(ItemType.SET, "7644-1").subsets()
 
         assert request.path == item_path(ItemType.SET, "7644-1", "subsets")
 
     def it_narrows_the_subsets_to_a_single_color(self):
-        request = get_subsets(ItemType.PART, "3001old", color_id=5)
+        request = ItemRef(ItemType.PART, "3001old").subsets(color_id=5)
 
         assert request.params["color_id"] == 5
 
     def it_asks_for_the_box_and_the_instruction_when_told_to(self):
-        request = get_subsets(ItemType.SET, "7644-1", box=True, instruction=True)
+        request = ItemRef(ItemType.SET, "7644-1").subsets(box=True, instruction=True)
 
         assert request.params["box"] is True
         assert request.params["instruction"] is True
 
     def it_breaks_minifigs_and_sets_down_when_told_to(self):
-        request = get_subsets(ItemType.SET, "7644-1", break_minifigs=True, break_subsets=True)
+        request = ItemRef(ItemType.SET, "7644-1").subsets(
+            break_minifigs=True, break_subsets=True
+        )
 
         assert request.params["break_minifigs"] is True
         assert request.params["break_subsets"] is True
 
     def it_leaves_out_every_option_it_is_not_given(self):
-        request = get_subsets(ItemType.SET, "7644-1")
+        request = ItemRef(ItemType.SET, "7644-1").subsets()
 
         assert clean_params(request.params) == {}
 
     def it_reads_the_answer_as_subset_entries(self):
-        request = get_subsets(ItemType.SET, "7644-1")
+        request = ItemRef(ItemType.SET, "7644-1").subsets()
 
         assert request.parse is parse_subset_entries
 
 
-class describe_get_price_guide:
+class describe_ItemRef_price_guide:
     def it_points_at_the_price_path(self):
-        request = get_price_guide(ItemType.SET, "7644-1")
+        request = ItemRef(ItemType.SET, "7644-1").price_guide()
 
         assert request.path == item_path(ItemType.SET, "7644-1", "price")
 
     def it_asks_for_the_sold_statistics_instead_of_the_stock_ones(self):
-        request = get_price_guide(ItemType.SET, "7644-1", guide_type=GuideType.SOLD)
+        request = ItemRef(ItemType.SET, "7644-1").price_guide(guide_type=GuideType.SOLD)
 
         assert request.params["guide_type"] == GuideType.SOLD
 
     def it_asks_for_the_used_condition(self):
-        request = get_price_guide(ItemType.SET, "7644-1", new_or_used=NewOrUsed.USED)
+        request = ItemRef(ItemType.SET, "7644-1").price_guide(new_or_used=NewOrUsed.USED)
 
         assert request.params["new_or_used"] == NewOrUsed.USED
 
     def it_narrows_the_price_guide_to_one_country(self):
-        request = get_price_guide(ItemType.SET, "7644-1", country_code="US")
+        request = ItemRef(ItemType.SET, "7644-1").price_guide(country_code="US")
 
         assert request.params["country_code"] == "US"
 
     def it_narrows_the_price_guide_to_one_region(self):
-        request = get_price_guide(ItemType.SET, "7644-1", region=Region.EUROPE)
+        request = ItemRef(ItemType.SET, "7644-1").price_guide(region=Region.EUROPE)
 
         assert request.params["region"] == Region.EUROPE
 
     def it_asks_for_the_prices_in_a_given_currency(self):
-        request = get_price_guide(ItemType.SET, "7644-1", currency_code="EUR")
+        request = ItemRef(ItemType.SET, "7644-1").price_guide(currency_code="EUR")
 
         assert request.params["currency_code"] == "EUR"
 
     def it_asks_for_the_prices_with_vat_included(self):
-        request = get_price_guide(ItemType.SET, "7644-1", vat=VatOption.INCLUDE)
+        request = ItemRef(ItemType.SET, "7644-1").price_guide(vat=VatOption.INCLUDE)
 
         assert request.params["vat"] == VatOption.INCLUDE
 
     def it_leaves_out_every_option_it_is_not_given(self):
-        request = get_price_guide(ItemType.SET, "7644-1")
+        request = ItemRef(ItemType.SET, "7644-1").price_guide()
 
         assert clean_params(request.params) == {}
 
     def it_reads_the_answer_as_a_price_guide(self):
-        request = get_price_guide(ItemType.SET, "7644-1")
+        request = ItemRef(ItemType.SET, "7644-1").price_guide()
 
         assert request.parse is parse_price_guide
 
 
-class describe_get_known_colors:
+class describe_ItemRef_known_colors:
     def it_points_at_the_colors_path(self):
-        request = get_known_colors(ItemType.PART, "3001")
+        request = ItemRef(ItemType.PART, "3001").known_colors()
 
         assert request.path == item_path(ItemType.PART, "3001", "colors")
 
     def it_reads_the_answer_as_known_colors(self):
-        request = get_known_colors(ItemType.PART, "3001")
+        request = ItemRef(ItemType.PART, "3001").known_colors()
 
         assert request.parse is parse_known_colors
+
+
+class describe_Item_ref:
+    def it_names_the_item_it_came_from(self):
+        item = Item(no="6608-1", type=ItemType.SET, name="Tractor")
+
+        assert item.ref() == ItemRef(ItemType.SET, "6608-1")
+
+    def it_builds_requests_about_that_item(self):
+        item = parse_item({"no": "3001old", "type": "PART"})
+
+        assert item.ref().known_colors().path == item_path(ItemType.PART, "3001old", "colors")
 
 
 class describe_parse_item:

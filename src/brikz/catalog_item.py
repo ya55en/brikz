@@ -1,11 +1,12 @@
 """The Catalog Item sub-API: `/items/{type}/{no}` and its sub-resources.
 
-Every function here is pure -- it builds a `Request` and touches no network.
-Hand one to `BrickLink.send` or `AsyncBrickLink.send` to execute it:
+Every endpoint hangs off an `ItemRef`, which names the item once. Building a
+request is pure -- it touches no network. Hand one to `BrickLink.send` or
+`AsyncBrickLink.send` to execute it:
 
-    item = client.send(catalog_item.get_item(ItemType.SET, '6608-1'))
+    item = client.send(ItemRef(ItemType.SET, '6608-1').get())
 
-Stubs only. See docs/design/notes.md for the reasoning behind the shape.
+See docs/design/notes.md for the reasoning behind the shape.
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from types import FunctionType
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
@@ -31,104 +31,119 @@ from .models.catalog_item import (
     SupersetItem,
 )
 
+__all__ = (
+    "Item",
+    "KnownColor",
+    "PriceDetail",
+    "PriceGuide",
+    "SubsetEntry",
+    "SubsetItem",
+    "SupersetEntry",
+    "SupersetItem",
+)
+
 if TYPE_CHECKING:
     from .enums.catalog_item import GuideType, Region, VatOption
-
-
-def staticnamespace[C: type](cls: C) -> C:
-    """A class decorator turning all methods of a class into `@staticmethod`s."""
-    for name, value in vars(cls).items():
-        if isinstance(value, FunctionType):
-            setattr(cls, name, staticmethod(value))
-    return cls
 
 
 # --- Requests ---------------------------------------------------------------
 
 
-def get_item(item_type: ItemType, item_no: str) -> Request[Item]:
-    """GET /items/{type}/{no} -- one catalog item."""
-    return Request(path=item_path(item_type, item_no), parse=parse_item)
+@dataclass(frozen=True, slots=True)
+class ItemRef:
+    """One catalog item, named once, as something to build requests about.
 
+    Holds no client and performs no I/O -- it is a key, not a resource
+    object. Every method here is pure and returns a `Request` for `send` to
+    execute:
 
-def get_item_image(item_type: ItemType, item_no: str, color_id: int) -> Request[Item]:
-    """GET /items/{type}/{no}/images/{color_id} -- the item's image in one color.
-
-    Answers a sparse `Item`: BrickLink fills only `no`, `type` and
-    `thumbnail_url`.
+        set_6608 = ItemRef(ItemType.SET, '6608-1')
+        prices = client.send(set_6608.price_guide(new_or_used=NewOrUsed.USED))
     """
-    return Request(path=item_path(item_type, item_no, "images", color_id), parse=parse_item)
 
+    type: ItemType
+    no: str
 
-def get_supersets(
-    item_type: ItemType,
-    item_no: str,
-    *,
-    color_id: int | None = None,
-) -> Request[tuple[SupersetEntry, ...]]:
-    """GET /items/{type}/{no}/supersets -- the items that include this one."""
-    return Request(
-        path=item_path(item_type, item_no, "supersets"),
-        parse=parse_superset_entries,
-        params={"color_id": color_id},
-    )
+    def __post_init__(self) -> None:
+        _reject_blank_item_key(self.type, self.no)
 
+    def get(self) -> Request[Item]:
+        """GET /items/{type}/{no} -- this catalog item."""
+        return Request(path=item_path(self.type, self.no), parse=parse_item)
 
-def get_subsets(
-    item_type: ItemType,
-    item_no: str,
-    *,
-    color_id: int | None = None,
-    box: bool | None = None,
-    instruction: bool | None = None,
-    break_minifigs: bool | None = None,
-    break_subsets: bool | None = None,
-) -> Request[tuple[SubsetEntry, ...]]:
-    """GET /items/{type}/{no}/subsets -- the items included in this one."""
-    return Request(
-        path=item_path(item_type, item_no, "subsets"),
-        parse=parse_subset_entries,
-        params={
-            "color_id": color_id,
-            "box": box,
-            "instruction": instruction,
-            "break_minifigs": break_minifigs,
-            "break_subsets": break_subsets,
-        },
-    )
+    def image(self, color_id: int) -> Request[Item]:
+        """GET /items/{type}/{no}/images/{color_id} -- this item in one color.
 
+        Answers a sparse `Item`: BrickLink fills only `no`, `type` and
+        `thumbnail_url`.
+        """
+        return Request(
+            path=item_path(self.type, self.no, "images", color_id),
+            parse=parse_item,
+        )
 
-def get_price_guide(
-    item_type: ItemType,
-    item_no: str,
-    *,
-    color_id: int | None = None,
-    guide_type: GuideType | None = None,
-    new_or_used: NewOrUsed | None = None,
-    country_code: str | None = None,
-    region: Region | None = None,
-    currency_code: str | None = None,
-    vat: VatOption | None = None,
-) -> Request[PriceGuide]:
-    """GET /items/{type}/{no}/price -- price statistics for this item."""
-    return Request(
-        path=item_path(item_type, item_no, "price"),
-        parse=parse_price_guide,
-        params={
-            "color_id": color_id,
-            "guide_type": guide_type,
-            "new_or_used": new_or_used,
-            "country_code": country_code,
-            "region": region,
-            "currency_code": currency_code,
-            "vat": vat,
-        },
-    )
+    def supersets(self, *, color_id: int | None = None) -> Request[tuple[SupersetEntry, ...]]:
+        """GET /items/{type}/{no}/supersets -- the items that include this one."""
+        return Request(
+            path=item_path(self.type, self.no, "supersets"),
+            parse=parse_superset_entries,
+            params={"color_id": color_id},
+        )
 
+    def subsets(
+        self,
+        *,
+        color_id: int | None = None,
+        box: bool | None = None,
+        instruction: bool | None = None,
+        break_minifigs: bool | None = None,
+        break_subsets: bool | None = None,
+    ) -> Request[tuple[SubsetEntry, ...]]:
+        """GET /items/{type}/{no}/subsets -- the items included in this one."""
+        return Request(
+            path=item_path(self.type, self.no, "subsets"),
+            parse=parse_subset_entries,
+            params={
+                "color_id": color_id,
+                "box": box,
+                "instruction": instruction,
+                "break_minifigs": break_minifigs,
+                "break_subsets": break_subsets,
+            },
+        )
 
-def get_known_colors(item_type: ItemType, item_no: str) -> Request[tuple[KnownColor, ...]]:
-    """GET /items/{type}/{no}/colors -- the colors this item is known in."""
-    return Request(path=item_path(item_type, item_no, "colors"), parse=parse_known_colors)
+    def price_guide(
+        self,
+        *,
+        color_id: int | None = None,
+        guide_type: GuideType | None = None,
+        new_or_used: NewOrUsed | None = None,
+        country_code: str | None = None,
+        region: Region | None = None,
+        currency_code: str | None = None,
+        vat: VatOption | None = None,
+    ) -> Request[PriceGuide]:
+        """GET /items/{type}/{no}/price -- price statistics for this item."""
+        return Request(
+            path=item_path(self.type, self.no, "price"),
+            parse=parse_price_guide,
+            params={
+                "color_id": color_id,
+                "guide_type": guide_type,
+                "new_or_used": new_or_used,
+                "country_code": country_code,
+                "region": region,
+                "currency_code": currency_code,
+                "vat": vat,
+            },
+        )
+
+    def known_colors(self) -> Request[tuple[KnownColor, ...]]:
+        """GET /items/{type}/{no}/colors -- the colors this item is known in."""
+        return Request(
+            path=item_path(self.type, self.no, "colors"),
+            parse=parse_known_colors,
+        )
 
 
 # --- Parsers ----------------------------------------------------------------
@@ -260,30 +275,22 @@ def parse_known_colors(data: JsonStruct | None) -> tuple[KnownColor, ...]:
     )
 
 
-def item_path(item_type: str, item_no: str, *segments: str | int) -> str:
-    """Build `/items/{type}/{no}[/...]`, percent-encoding every segment.
-
-    Raises ValueError on a blank type or number: those build a structurally
-    different URL rather than a merely invalid one.
-    """
+def _reject_blank_item_key(item_type: str, item_no: str) -> None:
+    """Reject a blank type or number: they build a structurally different URL."""
     if not item_type:
         raise ValueError("item type must not be blank")
 
     if not item_no:
         raise ValueError("item number must not be blank")
 
+
+def item_path(item_type: str, item_no: str, *segments: str | int) -> str:
+    """Build `/items/{type}/{no}[/...]`, percent-encoding every segment.
+
+    Raises ValueError on a blank type or number: those build a structurally
+    different URL rather than a merely invalid one.
+    """
+    _reject_blank_item_key(item_type, item_no)
+
     parts = (item_type, item_no, *segments)
     return "/items/" + "/".join(quote(str(part), safe="") for part in parts)
-
-# ------------------------------------------------------------
-
-@dataclass(frozen=True)
-class CatalogItem:
-    GetItem = get_item
-    GetItemImage = get_item_image
-
-
-    # [[ItemType, str], Request[Item]]
-    # def GetItem(item_type: ItemType, item_no: str) -> Request[Item]: #
-    #     """GET /items/{type}/{no} -- one catalog item."""
-    #     return Request(path=item_path(item_type, item_no), parse=parse_item)

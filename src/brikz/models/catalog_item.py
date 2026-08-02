@@ -5,9 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from ..enums.catalog_item import AppearAs
 from ..enums.shared import ItemType, NewOrUsed
+
+if TYPE_CHECKING:
+    from ..catalog_item import ItemRef
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +38,12 @@ class Item:
     description: str | None = None
     is_obsolete: bool | None = None
     language_code: str | None = None
+
+    def ref(self) -> ItemRef:
+        """This item, as something to ask further questions about."""
+        from ..catalog_item import ItemRef
+
+        return ItemRef(self.type, self.no)
 
 
 @dataclass(frozen=True, slots=True)
