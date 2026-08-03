@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import cache
 from types import NoneType
@@ -9,7 +10,7 @@ import httpx
 from authlib.integrations.httpx_client import OAuth1Auth
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Generator
 
 BASE_URL = "https://api.bricklink.com/api/store/v1"
 
@@ -78,8 +79,21 @@ class AsyncBrickLink:
         )
 
     async def send[T](self, request: Request[T]) -> T:
-        """Execute a request and read its answer into the request's own type."""
-        return request.parse(await self.get(request.path, request.params))
+        """Execute a request and read its answer into the request's own type.
+
+        Requests come from the sub-API modules -- `ItemRef(...).get()` and its
+        siblings.
+
+        Raises `BrikzError` or an `httpx` exception, nothing else. `BrikzError`
+        can be a `BrickLinkAPIError` when the envelope reports a failure,
+        `MalformedResponseError` when the answer is no envelope at all,
+        `ResponseParseError` when its data cannot be read, and `httpx`'s own
+        exceptions when the call never got that far.
+        """
+        data = await self.get(request.path, request.params)
+
+        with _handle_parse_errors(request, data):
+            return request.parse(data)
 
     async def get(self, path: str, params: dict[str, Any] | None = None) -> JsonStruct | None:
         response = await self._client.get(path, params=clean_params(params))
@@ -117,8 +131,21 @@ class BrickLink:
         )
 
     def send[T](self, request: Request[T]) -> T:
-        """Execute a request and read its answer into the request's own type."""
-        return request.parse(self.get(request.path, request.params))
+        """Execute a request and read its answer into the request's own type.
+
+        Requests come from the sub-API modules -- `ItemRef(...).get()` and its
+        siblings.
+
+        Raises `BrikzError` or an `httpx` exception, nothing else:
+        `BrickLinkAPIError` when the envelope reports a failure,
+        `MalformedResponseError` when the answer is no envelope at all,
+        `ResponseParseError` when its data cannot be read, and `httpx`'s own
+        exceptions when the call never got that far.
+        """
+        data = self.get(request.path, request.params)
+
+        with _handle_parse_errors(request, data):
+            return request.parse(data)
 
     def get(self, path: str, params: dict[str, Any] | None = None) -> JsonStruct | None:
         response = self._client.get(path, params=clean_params(params))
@@ -167,6 +194,25 @@ def unwrap(response: httpx.Response) -> JsonStruct | None:
     return data  # pyright: ignore[reportUnknownVariableType]
 
 
+@contextmanager
+def _handle_parse_errors(request: Request[Any], data: JsonStruct | None) -> Generator[None]:
+    """Turn any failure of a request's parser into one error type."""
+
+    try:
+        yield
+
+    except BrikzError:
+        raise
+
+    except _PARSE_FAILURES as err:
+        raise ResponseParseError(request, data) from err
+
+
+# What a parser reading a payload it did not expect can hit: a missing key, a
+# field of the wrong type, an unparsable number or date.
+_PARSE_FAILURES = (ValueError, TypeError, LookupError, AttributeError, ArithmeticError)
+
+
 def clean_params(params: dict[str, Any] | None) -> dict[str, Any]:
     """Drop unset (None) query parameters."""
     return {key: value for key, value in (params or {}).items() if value is not None}
@@ -193,6 +239,15 @@ class MalformedResponseError(BrikzError):
     def __init__(self, response: httpx.Response) -> None:
         self.response = response
         super().__init__(f"HTTP {response.status_code}: {response.text[:200]!r}")
+
+
+class ResponseParseError(BrikzError):
+    """Raised when the envelope was fine but its data could not be read."""
+
+    def __init__(self, request: Request[Any], data: JsonStruct | None) -> None:
+        self.request = request
+        self.data = data
+        super().__init__(f"could not read the response to {request.path}: {data!r:.200}")
 
 
 @cache

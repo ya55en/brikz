@@ -137,6 +137,17 @@ BrickLink's enumerations, `ItemRef`, and the models a response parses into
 and reads requests stays behind its module -- `catalog_item.parse_item`,
 `catalog_item.item_path`.
 
+### What `send` raises
+
+`send` raises `BrikzError` or an `httpx` exception, and nothing else.
+`BrickLinkAPIError` says the envelope came back with a non-success code,
+`MalformedResponseError` that the answer was not an envelope at all, and
+`ResponseParseError` that the envelope was fine but its data could not be read
+-- it carries the request and the offending payload, and the original failure
+as its `__cause__`. Transport failures (timeouts, connection errors, an error
+page) surface as the `httpx` exceptions they are: `httpx` is a public
+dependency here, not an implementation detail.
+
 ## Where things stand
 
 | | state |

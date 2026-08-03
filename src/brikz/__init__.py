@@ -10,6 +10,7 @@ from .core import (
     BrikzError,
     MalformedResponseError,
     Request,
+    ResponseParseError,
 )
 from .enums import AppearAs, GuideType, ItemType, NewOrUsed, Region, VatOption
 from .models import (
@@ -47,6 +48,7 @@ __all__ = (
     "PriceGuide",
     "Region",
     "Request",
+    "ResponseParseError",
     "SubsetEntry",
     "SubsetItem",
     "SupersetEntry",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import decimal
 
 import httpx
 import pytest
@@ -19,6 +20,8 @@ from brikz.core import (
     JsonStruct,
     MalformedResponseError,
     Request,
+    ResponseParseError,
+    _handle_parse_errors,
     clean_params,
     unwrap,
     user_agent,
@@ -140,6 +143,33 @@ class describe_MalformedResponseError:
         message = str(MalformedResponseError(response))
 
         assert message == f"HTTP 500: {'x' * 200!r}"
+
+
+class describe_ResponseParseError:
+    def it_is_a_brikz_error(self):
+        assert issubclass(ResponseParseError, BrikzError)
+
+    def it_keeps_the_request_and_the_payload_for_inspection(self):
+        request = Request(path="/items/SET/1", parse=parse_foo)
+
+        error = ResponseParseError(request, {"bar": 1})
+
+        assert error.request is request
+        assert error.data == {"bar": 1}
+
+    def it_reports_the_path_and_the_payload(self):
+        request = Request(path="/items/SET/1", parse=parse_foo)
+
+        message = str(ResponseParseError(request, {"bar": 1}))
+
+        assert message == "could not read the response to /items/SET/1: {'bar': 1}"
+
+    def it_shortens_a_long_payload_to_200_characters(self):
+        request = Request(path="/items/SET/1", parse=parse_foo)
+
+        message = str(ResponseParseError(request, {"bar": "x" * 5000}))
+
+        assert len(message.split(": ", 1)[1]) == 200
 
 
 class describe_BrickLink:
@@ -354,6 +384,18 @@ class describe_BrickLink_send:
         ):
             client.send(request)
 
+    def it_reports_a_payload_its_parser_cannot_read(self):
+        transport = envelope_transport({"meta": {"code": 200}, "data": {"bar": "baz"}})
+        request = Request(path="/items/SET/1", parse=parse_foo)
+
+        with (
+            BrickLink(CREDENTIALS, transport=transport) as client,
+            pytest.raises(ResponseParseError) as excinfo,
+        ):
+            client.send(request)
+
+        assert excinfo.value.data == {"bar": "baz"}
+
 
 class describe_AsyncBrickLink_send:
     pytestmark = pytest.mark.anyio
@@ -383,6 +425,16 @@ class describe_AsyncBrickLink_send:
         async with AsyncBrickLink(CREDENTIALS, transport=transport) as client:
             with pytest.raises(BrickLinkAPIError):
                 await client.send(request)
+
+    async def it_reports_a_payload_its_parser_cannot_read(self):
+        transport = envelope_transport({"meta": {"code": 200}, "data": {"bar": "baz"}})
+        request = Request(path="/items/SET/1", parse=parse_foo)
+
+        async with AsyncBrickLink(CREDENTIALS, transport=transport) as client:
+            with pytest.raises(ResponseParseError) as excinfo:
+                await client.send(request)
+
+        assert excinfo.value.data == {"bar": "baz"}
 
 
 class describe_unwrap:
@@ -500,6 +552,68 @@ class describe_unwrap:
         response = envelope_response({"meta": {"code": 200}, "data": {"a": 1}}, status_code=500)
 
         assert unwrap(response) == {"a": 1}
+
+
+class describe_handle_parse_errors:
+    def it_stays_out_of_the_way_when_the_parser_succeeds(self):
+        request = Request(path="/items/SET/1", parse=parse_foo)
+
+        with _handle_parse_errors(request, {"foo": "bar"}):
+            assert request.parse({"foo": "bar"}) == "bar"
+
+    @pytest.mark.parametrize(
+        "err",
+        [
+            ValueError("bad value"),
+            TypeError("bad type"),
+            KeyError("bad key"),
+            IndexError("out of range"),
+            AttributeError("no such field"),
+            ArithmeticError("does not compute"),
+            decimal.InvalidOperation("not a number"),
+        ],
+    )
+    def it_reports_a_parse_failure_as_one_error_type(self, err: Exception):
+        request = Request(path="/items/SET/1", parse=parse_foo)
+
+        with pytest.raises(ResponseParseError), _handle_parse_errors(request, {"foo": "bar"}):
+            raise err
+
+    def it_carries_the_request_and_the_payload_into_the_error(self):
+        request = Request(path="/items/SET/1", parse=parse_foo)
+
+        with (
+            pytest.raises(ResponseParseError) as excinfo,
+            _handle_parse_errors(request, {"foo": "bar"}),
+        ):
+            raise KeyError("no")
+
+        assert excinfo.value.request is request
+        assert excinfo.value.data == {"foo": "bar"}
+
+    def it_keeps_the_original_failure_as_the_cause(self):
+        original = KeyError("no")
+        request = Request(path="/items/SET/1", parse=parse_foo)
+
+        with (
+            pytest.raises(ResponseParseError) as excinfo,
+            _handle_parse_errors(request, {"foo": "bar"}),
+        ):
+            raise original
+
+        assert excinfo.value.__cause__ is original
+
+    def it_lets_a_brikz_error_through_untouched(self):
+        original = BrickLinkAPIError(code=404, message="RESOURCE_NOT_FOUND")
+        request = Request(path="/items/SET/1", parse=parse_foo)
+
+        with (
+            pytest.raises(BrickLinkAPIError) as excinfo,
+            _handle_parse_errors(request, {"foo": "bar"}),
+        ):
+            raise original
+
+        assert excinfo.value is original
 
 
 class describe_clean_params:
