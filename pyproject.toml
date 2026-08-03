@@ -67,6 +67,9 @@ exclude_also = ["if TYPE_CHECKING:"]
 [tool.ruff]
 line-length = 96
 
+[tool.ruff.format]
+quote-style = "single"
+
 # tell ruff's isort not to force a blank line before the local-folder
 # section when it follows the first-party section
 [tool.ruff.lint.isort]

@@ -26,7 +26,7 @@ from .models import (
     SupersetItem,
 )
 
-__version__ = "0.0.2"
+__version__ = '0.0.2'
 
 # A library configures no logging; it only makes sure its records go nowhere
 # until an application asks for them.
@@ -37,28 +37,28 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 # where a name lives is free to change. The machinery that builds and reads
 # requests stays behind its module: `catalog_item.parse_item`, `item_path`.
 __all__ = (
-    "AppearAs",
-    "AsyncBrickLink",
-    "BrickLink",
-    "BrickLinkAPIError",
-    "BrickLinkCredentials",
-    "BrikzError",
-    "GuideType",
-    "Item",
-    "ItemRef",
-    "ItemType",
-    "KnownColor",
-    "MalformedResponseError",
-    "NewOrUsed",
-    "PriceDetail",
-    "PriceGuide",
-    "Region",
-    "Request",
-    "ResponseParseError",
-    "SubsetEntry",
-    "SubsetItem",
-    "SupersetEntry",
-    "SupersetItem",
-    "VatOption",
-    "catalog_item",
+    'AppearAs',
+    'AsyncBrickLink',
+    'BrickLink',
+    'BrickLinkAPIError',
+    'BrickLinkCredentials',
+    'BrikzError',
+    'GuideType',
+    'Item',
+    'ItemRef',
+    'ItemType',
+    'KnownColor',
+    'MalformedResponseError',
+    'NewOrUsed',
+    'PriceDetail',
+    'PriceGuide',
+    'Region',
+    'Request',
+    'ResponseParseError',
+    'SubsetEntry',
+    'SubsetItem',
+    'SupersetEntry',
+    'SupersetItem',
+    'VatOption',
+    'catalog_item',
 )

@@ -18,12 +18,12 @@ from .catalog_item import (
 )
 
 __all__ = (
-    "Item",
-    "KnownColor",
-    "PriceDetail",
-    "PriceGuide",
-    "SubsetEntry",
-    "SubsetItem",
-    "SupersetEntry",
-    "SupersetItem",
+    'Item',
+    'KnownColor',
+    'PriceDetail',
+    'PriceGuide',
+    'SubsetEntry',
+    'SubsetItem',
+    'SupersetEntry',
+    'SupersetItem',
 )

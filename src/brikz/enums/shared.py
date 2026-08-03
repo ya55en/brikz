@@ -27,17 +27,17 @@ class LenientStrEnum(StrEnum):
 
 
 class ItemType(LenientStrEnum):
-    MINIFIG = "MINIFIG"
-    PART = "PART"
-    SET = "SET"
-    BOOK = "BOOK"
-    GEAR = "GEAR"
-    CATALOG = "CATALOG"
-    INSTRUCTION = "INSTRUCTION"
-    UNSORTED_LOT = "UNSORTED_LOT"
-    ORIGINAL_BOX = "ORIGINAL_BOX"
+    MINIFIG = 'MINIFIG'
+    PART = 'PART'
+    SET = 'SET'
+    BOOK = 'BOOK'
+    GEAR = 'GEAR'
+    CATALOG = 'CATALOG'
+    INSTRUCTION = 'INSTRUCTION'
+    UNSORTED_LOT = 'UNSORTED_LOT'
+    ORIGINAL_BOX = 'ORIGINAL_BOX'
 
 
 class NewOrUsed(LenientStrEnum):
-    NEW = "N"
-    USED = "U"
+    NEW = 'N'
+    USED = 'U'

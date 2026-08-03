@@ -9,11 +9,11 @@ from .catalog_item import AppearAs, GuideType, Region, VatOption
 from .shared import ItemType, LenientStrEnum, NewOrUsed
 
 __all__ = (
-    "AppearAs",
-    "GuideType",
-    "ItemType",
-    "LenientStrEnum",
-    "NewOrUsed",
-    "Region",
-    "VatOption",
+    'AppearAs',
+    'GuideType',
+    'ItemType',
+    'LenientStrEnum',
+    'NewOrUsed',
+    'Region',
+    'VatOption',
 )

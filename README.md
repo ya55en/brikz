@@ -54,11 +54,13 @@ with brikz.BrickLink(credentials) as client:
     part = groups[0].entries[0].item
     colors = client.send(part.ref().known_colors())
 
+
 # The same request, sent by the async client:
 async def async_call():
     async with brikz.AsyncBrickLink(credentials) as client:
         item = await client.send(set_6608.get())
         print(item.name)
+
 
 asyncio.run(async_call())
 ```
