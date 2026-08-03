@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import cache
@@ -11,6 +12,13 @@ from authlib.integrations.httpx_client import OAuth1Auth
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
+
+log = logging.getLogger(__name__)
+
+# Raw response bodies get their own channel: they are long, and an order or a
+# member response carries personal data. Silence with
+# `logging.getLogger("brikz.wire").setLevel(logging.INFO)`.
+wire = logging.getLogger("brikz.wire")
 
 BASE_URL = "https://api.bricklink.com/api/store/v1"
 
@@ -77,6 +85,12 @@ class AsyncBrickLink:
             headers={"User-Agent": user_agent()},
             **httpx_kwargs,
         )
+        log.debug(
+            "AsyncBrickLink ready: base_url=%s consumer_key=%s user_agent=%s",
+            base_url,
+            credentials.consumer_key,
+            user_agent(),
+        )
 
     async def send[T](self, request: Request[T]) -> T:
         """Execute a request and read its answer into the request's own type.
@@ -90,16 +104,27 @@ class AsyncBrickLink:
         `ResponseParseError` when its data cannot be read, and `httpx`'s own
         exceptions when the call never got that far.
         """
+        log.debug("sending %s", request)
         data = await self.get(request.path, request.params)
 
         with _handle_parse_errors(request, data):
-            return request.parse(data)
+            result = request.parse(data)
+
+        log.debug("%s parsed into %s", request.path, _describe(result))
+        return result
 
     async def get(self, path: str, params: dict[str, Any] | None = None) -> JsonStruct | None:
-        response = await self._client.get(path, params=clean_params(params))
+        query = clean_params(params)
+        log.debug("GET %s params=%r", path, query)
+
+        response = await self._client.get(path, params=query)
+        log.debug("HTTP %d for %s (%d bytes)", response.status_code, path, len(response.content))
+        _log_body(path, response)
+
         return unwrap(response)
 
     async def aclose(self) -> None:
+        log.debug("closing AsyncBrickLink")
         await self._client.aclose()
 
     async def __aenter__(self) -> Self:
@@ -129,6 +154,12 @@ class BrickLink:
             headers={"User-Agent": user_agent()},
             **httpx_kwargs,
         )
+        log.debug(
+            "BrickLink ready: base_url=%s consumer_key=%s user_agent=%s",
+            base_url,
+            credentials.consumer_key,
+            user_agent(),
+        )
 
     def send[T](self, request: Request[T]) -> T:
         """Execute a request and read its answer into the request's own type.
@@ -142,16 +173,27 @@ class BrickLink:
         `ResponseParseError` when its data cannot be read, and `httpx`'s own
         exceptions when the call never got that far.
         """
+        log.debug("sending %s", request)
         data = self.get(request.path, request.params)
 
         with _handle_parse_errors(request, data):
-            return request.parse(data)
+            result = request.parse(data)
+
+        log.debug("%s parsed into %s", request.path, _describe(result))
+        return result
 
     def get(self, path: str, params: dict[str, Any] | None = None) -> JsonStruct | None:
-        response = self._client.get(path, params=clean_params(params))
+        query = clean_params(params)
+        log.debug("GET %s params=%r", path, query)
+
+        response = self._client.get(path, params=query)
+        log.debug("HTTP %d for %s (%d bytes)", response.status_code, path, len(response.content))
+        _log_body(path, response)
+
         return unwrap(response)
 
     def close(self) -> None:
+        log.debug("closing BrickLink")
         self._client.close()
 
     def __enter__(self) -> Self:
@@ -165,6 +207,7 @@ def unwrap(response: httpx.Response) -> JsonStruct | None:
     """Validate a BrickLink API response envelope and return its "data" field."""
     if not response.content:
         # A body-less response, like a 204 from a DELETE, is legit.
+        log.debug("empty body on HTTP %d -- no envelope to read", response.status_code)
         response.raise_for_status()
         return None
 
@@ -175,10 +218,12 @@ def unwrap(response: httpx.Response) -> JsonStruct | None:
 
     except (ValueError, TypeError, KeyError) as err:
         # Not a BrickLink envelope (gateway error page, HTML, ...).
+        log.debug("no envelope in the body: %r", response.text[:200])
         response.raise_for_status()
         raise MalformedResponseError(response) from err
 
     if code // 100 != 2:  # not a 2xx response
+        log.debug("envelope reports meta.code=%d: %r", code, meta)
         raise BrickLinkAPIError(
             code=code,
             message=meta.get("message", "n/a"),
@@ -189,8 +234,10 @@ def unwrap(response: httpx.Response) -> JsonStruct | None:
     # rather than leaking Any into every caller.
     data = body.get("data")
     if not isinstance(data, (dict, list, NoneType)):
+        log.debug("envelope data is neither object nor list: %r", data)
         raise MalformedResponseError(response)
 
+    log.debug("envelope ok: meta.code=%d, data is %s", code, _describe(data))
     return data  # pyright: ignore[reportUnknownVariableType]
 
 
@@ -205,7 +252,23 @@ def _handle_parse_errors(request: Request[Any], data: JsonStruct | None) -> Gene
         raise
 
     except _PARSE_FAILURES as err:
+        log.debug("%s failed on %r: %r", request.parse, data, err)
         raise ResponseParseError(request, data) from err
+
+
+def _log_body(path: str, response: httpx.Response) -> None:
+    """Log the response body verbatim, decoding it only if anyone is listening."""
+    if wire.isEnabledFor(logging.DEBUG):
+        wire.debug("body of %s: %s", path, response.text)
+
+
+def _describe(value: Any) -> str:
+    """Name a value for a log line without spelling the whole thing out."""
+    name: str = type(value).__name__
+    if isinstance(value, (dict, list, tuple)):
+        return f"{name} of {len(value)}"  # pyright: ignore[reportUnknownArgumentType]
+
+    return name
 
 
 # What a parser reading a payload it did not expect can hit: a missing key, a

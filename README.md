@@ -148,6 +148,40 @@ as its `__cause__`. Transport failures (timeouts, connection errors, an error
 page) surface as the `httpx` exceptions they are: `httpx` is a public
 dependency here, not an implementation detail.
 
+### Logging
+
+`brikz` configures no logging of its own -- it only attaches a `NullHandler`, so
+nothing is emitted until your application asks for it. At `DEBUG` you get the
+whole story of a call: the request as it was built, the path and query
+parameters, the HTTP status and size, what the envelope said, and what the
+answer parsed into. Failures narrate themselves before they raise.
+
+```python
+logging.basicConfig(level=logging.DEBUG)
+```
+
+```
+DEBUG brikz.core: sending Request(path='/items/SET/6608-1', parse=<function parse_item ...>, params={})
+DEBUG brikz.core: GET /items/SET/6608-1 params={}
+DEBUG brikz.core: HTTP 200 for /items/SET/6608-1 (93 bytes)
+DEBUG brikz.wire: body of /items/SET/6608-1: {"meta":{"code":200},"data":{"no":"6608-1",...}}
+DEBUG brikz.core: envelope ok: meta.code=200, data is dict of 4
+DEBUG brikz.core: /items/SET/6608-1 parsed into Item
+```
+
+Raw response bodies are logged verbatim and untruncated, but on their own
+logger, `brikz.wire`, because they are the one part you may want off while
+keeping the rest: they are unbounded (a `subsets` response runs to hundreds of
+KB), and an order or member response carries personal data into wherever your
+logs go. To keep everything else and drop the bodies:
+
+```python
+logging.getLogger('brikz.wire').setLevel(logging.INFO)
+```
+
+Sensitive data never reaches a log line (only `consumer_key` is ever logged
+from the credential keys).
+
 ## Where things stand
 
 | | state |
